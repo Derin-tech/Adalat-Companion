@@ -249,8 +249,8 @@ function LoadingWidget() {
   const [step, setStep] = useState(0);
   const steps = [
     "Reading court order text & extracting clauses...",
-    "Connecting to Gemini 3.6 Flash legal translation model...",
-    "Generating plain-language summary & identifying statutory terms...",
+    "Connecting to central records database...",
+    "Retrieving plain-language clause definitions...",
     "Validating CNR & constructing eCourts verification link..."
   ];
 
@@ -264,10 +264,10 @@ function LoadingWidget() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center govt-card p-12 space-y-4">
       <div className="relative w-16 h-16 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full border-4 border-blue-900/20 border-t-blue-900 animate-spin"></div>
-        <Scale size={28} className="text-blue-900 animate-pulse" />
+        <div className="absolute inset-0 rounded-full border-4 border-slate-300 border-t-slate-700 animate-spin"></div>
+        <Scale size={28} className="text-slate-700" />
       </div>
-      <h3 className="text-lg font-bold font-serif text-slate-900">Generating Plain-Language Explanation...</h3>
+      <h3 className="text-lg font-bold font-serif text-slate-900">Processing Document Translation...</h3>
       <p className="text-xs font-semibold text-blue-900 bg-blue-50 px-4 py-1.5 rounded border border-blue-200">
         {steps[step]}
       </p>
