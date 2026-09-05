@@ -1,0 +1,46 @@
+[
+  {
+    "id": "e9d3f07c-7f65-4a83-acbc-f657e22885bf",
+    "category": "Criminal",
+    "description": "Need a lawyer for a criminal case",
+    "district": "New Delhi",
+    "language": "English",
+    "urgency": "Normal",
+    "contactInfo": {
+      "name": "Test User",
+      "phone": "1234567890"
+    },
+    "status": "matched",
+    "createdAt": "2026-09-05T21:42:06.707Z",
+    "notifiedLawyers": [
+      "lawyer_1"
+    ],
+    "matchedLawyer": {
+      "id": "lawyer_1",
+      "name": "Adv. Rajesh Kumar",
+      "contactInfo": {
+        "phone": "+91 9876543210",
+        "email": "rajesh.kumar@example.com",
+        "chamber": "Chamber 12, Tis Hazari Courts"
+      }
+    }
+  },
+  {
+    "id": "c6ee363c-4877-492f-9306-4612a65ee610",
+    "category": "Criminal",
+    "description": "big issue ",
+    "district": "kerala",
+    "language": "malayalam",
+    "urgency": "Urgent",
+    "contactInfo": {
+      "name": "PRANAV K VINOD",
+      "phone": "7561014788"
+    },
+    "status": "matching",
+    "createdAt": "2026-09-05T21:55:16.677Z",
+    "notifiedLawyers": [
+      "lw-002"
+    ],
+    "matchedLawyer": null
+  }
+]

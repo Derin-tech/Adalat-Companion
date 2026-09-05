@@ -14,6 +14,7 @@ import ActionChecklist from './components/ActionChecklist';
 import ChatWidget from './components/ChatWidget';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { LawyerConnect } from './LawyerConnect';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -70,8 +71,9 @@ export default function App() {
     }
   }, [fontSize]);
 
-  const [route, setRoute] = useState<'main' | 'admin'>(
-    typeof window !== 'undefined' && window.location.pathname === '/admin' ? 'admin' : 'main'
+  const [route, setRoute] = useState<'main' | 'admin' | 'lawyerConnect'>(
+    typeof window !== 'undefined' && window.location.pathname === '/admin' ? 'admin' : 
+    typeof window !== 'undefined' && window.location.pathname === '/lawyer-connect' ? 'lawyerConnect' : 'main'
   );
 
   const handleReset = () => {
@@ -213,6 +215,16 @@ export default function App() {
               Admin Portal (/admin)
             </span>
             <span>•</span>
+            <span 
+              className={`cursor-pointer ${route === 'lawyerConnect' ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
+              onClick={() => {
+                if (typeof window !== 'undefined') window.history.pushState({}, '', '/lawyer-connect');
+                setRoute('lawyerConnect');
+              }}
+            >
+              Lawyer Connect
+            </span>
+            <span>•</span>
             <span className="hover:text-white cursor-pointer" onClick={() => setIsGlossaryOpen(true)}>
               Glossary Terms
             </span>
@@ -235,6 +247,8 @@ export default function App() {
 
         {route === 'admin' ? (
           <AdminScreen onGoBack={handleReset} />
+        ) : route === 'lawyerConnect' ? (
+          <LawyerConnect />
         ) : loading ? (
           <LoadingWidget />
         ) : !caseId && !selectedSample && !apiData ? (

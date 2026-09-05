@@ -11,6 +11,7 @@ if (pdfParse && typeof pdfParse !== 'function' && typeof pdfParse.default === 'f
   pdfParse = pdfParse.default;
 }
 require('dotenv').config();
+const lawyerConnectRouter = require('./routes/lawyerConnect');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -18,6 +19,7 @@ const AI_PIPELINE_URL = 'http://127.0.0.1:8000';
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/lawyer-connect', lawyerConnectRouter);
 
 // Setup multer for file uploads
 const upload = multer({ dest: 'uploads/' });
