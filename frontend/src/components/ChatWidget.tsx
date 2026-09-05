@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { MessageSquare, X, Send, HelpCircle } from 'lucide-react';
+import type { SupportedLanguage } from '../data/translations';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -9,14 +10,70 @@ type Message = {
   isUser: boolean;
 };
 
-export default function ChatWidget() {
+const CHAT_TRANSLATIONS: Record<SupportedLanguage, { greeting: string; placeholder: string; disclaimer: string; title: string; subtitle: string }> = {
+  en: {
+    greeting: "Hi, I can help explain your rights and general legal terms. I can't give specific legal advice or look up your case, but I can help you understand what's going on. What would you like to know?",
+    placeholder: "Ask a question about your rights...",
+    disclaimer: "This chatbot gives general information, not legal advice. For specific cases, consult a lawyer or call NALSA at 15100.",
+    title: "Legal Rights Assistant",
+    subtitle: "अधिकार सहायक | Adalat Companion"
+  },
+  hi: {
+    greeting: "नमस्ते, मैं आपके अधिकारों और सामान्य कानूनी शब्दों को समझने में आपकी मदद कर सकता हूँ। मैं विशिष्ट कानूनी सलाह नहीं दे सकता, लेकिन प्रक्रिया समझने में आपकी सहायता करूँगा। आप क्या जानना चाहते हैं?",
+    placeholder: "अपने कानूनी अधिकारों के बारे में पूछें...",
+    disclaimer: "यह चैटबॉट केवल सामान्य जानकारी प्रदान करता है, कानूनी सलाह नहीं। विशिष्ट मामले के लिए वकील से संपर्क करें या 15100 पर कॉल करें।",
+    title: "कानूनी अधिकार सहायक",
+    subtitle: "अधिकार सहायक | अदालत साथी"
+  },
+  ta: {
+    greeting: "வணக்கம், உங்கள் உரிமைகள் மற்றும் பொதுவான சட்ட விதிமுறைகளை எளிமையாக விளக்க நான் உதவ முடியும். நீங்கள் என்ன தெரிந்து கொள்ள விரும்புகிறீர்கள்?",
+    placeholder: "உங்கள் உரிமைகள் பற்றி கேள்வி கேளுங்கள்...",
+    disclaimer: "இந்த சாட்பாட் பொதுவான தகவல்களை மட்டுமே வழங்குகிறது, சட்ட ஆலோசனை அல்ல. இலவச சட்ட உதவிக்கு 15100 என்ற எண்ணை அழைக்கவும்.",
+    title: "சட்ட உரிமைகள் உதவியாளர்",
+    subtitle: "உரிமை உதவியாளர் | அதாலத் தோழன்"
+  },
+  te: {
+    greeting: "నమస్కారం, మీ హక్కులు మరియు సాధారణ చట్టపరమైన నిబంధనలను అర్థం చేసుకోవడంలో నేను మీకు సహాయపడగలను. మీరు ఏమి తెలుసుకోవాలనుకుంటున్నారు?",
+    placeholder: "మీ చట్టపరమైన హక్కుల గురించి అడగండి...",
+    disclaimer: "ఈ చాట్‌బాట్ సాధారణ సమాచారాన్ని మాత్రమే అందిస్తుంది, చట్టపరమైన సలహా కాదు. ఉచిత న్యాయ సహాయం కోసం 15100కు కాల్ చేయండి.",
+    title: "చట్టపరమైన హక్కుల సహాయకుడు",
+    subtitle: "హక్కుల సహాయకుడు | అదాలత్ కంపానియన్"
+  },
+  kn: {
+    greeting: "ನಮಸ್ಕಾರ, ನಿಮ್ಮ ಹಕ್ಕುಗಳು ಮತ್ತು ಸಾಮಾನ್ಯ ಕಾನೂನು ಪದಗಳನ್ನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲು ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ. ನೀವು ಏನನ್ನು ತಿಳಿಯಲು ಬಯಸುತ್ತೀರಿ?",
+    placeholder: "ನಿಮ್ಮ ಕಾನೂನು ಹಕ್ಕುಗಳ ಬಗ್ಗೆ ಪ್ರಶ್ನೆ ಕೇಳಿ...",
+    disclaimer: "ಈ ಚಾಟ್‌ಬಾಟ್ ಸಾಮಾನ್ಯ ಮಾಹಿತಿಯನ್ನು ಮಾತ್ರ ನೀಡುತ್ತದೆ, ಕಾನೂನು ಸಲಹೆಯಲ್ಲ. ಉಚಿತ ಕಾನೂನು ಸಹಾಯಕ್ಕಾಗಿ 15100 ಗೆ ಕರೆ ಮಾಡಿ.",
+    title: "ಕಾನೂನು ಹಕ್ಕುಗಳ ಸಹಾಯಕ",
+    subtitle: "ಹಕ್ಕುಗಳ ಸಹಾಯಕ | ಅದಾಲತ್ ಕಂಪ್ಯಾನಿಯನ್"
+  },
+  bn: {
+    greeting: "নমস্কার, আমি আপনার অধিকার এবং সাধারণ আইনি পরিভাষা বুঝতে সাহায্য করতে পারি। আমি নির্দিষ্ট আইনি পরামর্শ দিতে পারি না, তবে কী ঘটছে তা বুঝতে সাহায্য করতে পারি। আপনি কী জানতে চান?",
+    placeholder: "আপনার অধিকার সম্পর্কে প্রশ্ন জিজ্ঞাসা করুন...",
+    disclaimer: "এই চ্যাটবটটি কেবল সাধারণ তথ্য সরবরাহ করে, আইনি পরামর্শ নয়। নির্দিষ্ট মামলার জন্য 15100 নম্বরে NALSA-তে কল করুন।",
+    title: "আইনি অধিকার সহকারী",
+    subtitle: "অধিকার সহায়ক | আদালত কম্প্যানিয়ন"
+  }
+};
+
+export default function ChatWidget({ lang = 'en' }: { lang?: SupportedLanguage }) {
+  const tChat = CHAT_TRANSLATIONS[lang] || CHAT_TRANSLATIONS.en;
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
-      text: "Hi, I can help explain your rights and general legal terms. I can't give specific legal advice or look up your case, but I can help you understand what's going on. What would you like to know?",
+      text: tChat.greeting,
       isUser: false
     }
   ]);
+
+  // Update greeting when lang changes if only greeting is present
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length === 1 && !prev[0].isUser) {
+        return [{ text: tChat.greeting, isUser: false }];
+      }
+      return prev;
+    });
+  }, [lang]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -85,8 +142,8 @@ export default function ChatWidget() {
                 <img src="/logo.png" alt="Adalat Logo" className="w-full h-full object-contain" />
               </div>
               <div>
-                <h3 className="font-bold text-sm font-serif">Legal Rights Assistant</h3>
-                <p className="text-[10px] text-slate-300">अधिकार सहायक | Adalat Companion</p>
+                <h3 className="font-bold text-sm font-serif">{tChat.title}</h3>
+                <p className="text-[10px] text-slate-300">{tChat.subtitle}</p>
               </div>
             </div>
             <button
@@ -127,7 +184,7 @@ export default function ChatWidget() {
           <div className="bg-amber-50 px-4 py-2 border-t border-amber-200 flex items-start gap-2">
             <HelpCircle size={14} className="text-amber-700 shrink-0 mt-0.5" />
             <p className="text-[10px] leading-tight font-semibold text-amber-900">
-              This chatbot gives general information, not legal advice. For specific cases, consult a lawyer or call NALSA at <strong>15100</strong>.
+              {tChat.disclaimer}
             </p>
           </div>
 
@@ -137,7 +194,7 @@ export default function ChatWidget() {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask a question about your rights..."
+              placeholder={tChat.placeholder}
               className="flex-1 bg-slate-100 border border-slate-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent"
               disabled={isTyping}
             />

@@ -13,6 +13,9 @@ import TimelineWidget from './components/TimelineWidget';
 import ActionChecklist from './components/ActionChecklist';
 import ChatWidget from './components/ChatWidget';
 
+import type { SupportedLanguage } from './data/translations';
+import { SUPPORTED_LANGUAGES, UI_TRANSLATIONS, translateLegalText } from './data/translations';
+
 const API_BASE = 'http://localhost:3001/api';
 
 type ViewMode = 'summary' | 'split' | 'timeline';
@@ -25,6 +28,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+  const [lang, setLang] = useState<SupportedLanguage>('en');
+
+  const t = (key: string) => UI_TRANSLATIONS[lang]?.[key] || UI_TRANSLATIONS.en[key] || key;
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -63,20 +69,40 @@ export default function App() {
       <div className="govt-topbar text-white py-1.5 px-4 text-xs no-print">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-slate-300">National Legal Aid & Literacy Support Portal</span>
+            <span className="font-semibold text-slate-300">{t('portalName')}</span>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-400 hidden sm:inline">Government of India Project</span>
+            <span className="text-slate-400 hidden sm:inline">{t('govtProject')}</span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-300">
             <div className="flex items-center gap-1">
               <PhoneCall size={12} className="text-amber-400" />
-              <span>NALSA Legal Aid Helpline: <strong className="text-white">15100</strong></span>
+              <span>{t('helpline')}</span>
             </div>
             <span className="text-slate-600">|</span>
+
+            {/* Language Selector in Top Bar */}
+            <div className="flex items-center gap-1 text-xs">
+              <span className="text-slate-400">{t('language')}:</span>
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value as SupportedLanguage)}
+                className="bg-slate-800 text-amber-400 border border-slate-700 rounded px-1.5 py-0.5 text-xs font-bold focus:outline-none cursor-pointer"
+                title="Select Interface Language"
+              >
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code} className="bg-slate-900 text-white font-medium">
+                    {l.nativeName} ({l.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <span className="text-slate-600">|</span>
+
             {/* Accessibility Font Resizer */}
             <div className="flex items-center gap-1 font-mono text-xs">
-              <span className="text-slate-400 mr-1">Text:</span>
+              <span className="text-slate-400 mr-1">{t('textResizer')}</span>
               <button 
                 type="button"
                 onClick={() => setFontSize('normal')} 
@@ -111,10 +137,10 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-extrabold tracking-tight font-serif text-white">
-                  अदालत साथी <span className="text-amber-400 font-sans font-bold text-xl">| Adalat Companion</span>
+                  {t('portalTitleHindi')} <span className="text-amber-400 font-sans font-bold text-xl">| {t('portalTitleEng')}</span>
                 </h1>
               </div>
-              <p className="text-xs text-slate-300 font-medium">Court Order Text Simplification & Source Verification Portal</p>
+              <p className="text-xs text-slate-300 font-medium">{t('portalSubtitle')}</p>
             </div>
           </div>
 
@@ -124,7 +150,7 @@ export default function App() {
               className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition-colors"
             >
               <BookOpen size={16} className="text-amber-400" />
-              <span>Legal Term Glossary</span>
+              <span>{t('glossaryBtn')}</span>
             </button>
           </div>
         </div>
@@ -136,7 +162,7 @@ export default function App() {
               className={`cursor-pointer ${route === 'main' && !caseId && !selectedSample && !apiData ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} 
               onClick={handleReset}
             >
-              Order Explainer
+              {t('navExplainer')}
             </span>
             <span>•</span>
             <span 
@@ -146,15 +172,15 @@ export default function App() {
                 setRoute('admin');
               }}
             >
-              Admin Portal (/admin)
+              {t('navAdmin')}
             </span>
             <span>•</span>
             <span className="hover:text-white cursor-pointer" onClick={() => setIsGlossaryOpen(true)}>
-              Glossary Terms
+              {t('navGlossary')}
             </span>
             <span>•</span>
             <a href="https://ecourts.gov.in" target="_blank" rel="noreferrer" className="hover:text-white flex items-center gap-1">
-              eCourts Official Portal ↗
+              {t('navECourts')}
             </a>
           </div>
         </div>
@@ -185,6 +211,8 @@ export default function App() {
             }}
             setLoading={setLoading} 
             setError={setError} 
+            lang={lang}
+            t={t}
           />
         ) : (
           <ResultsScreen 
@@ -193,6 +221,9 @@ export default function App() {
             apiData={apiData}
             onReset={handleReset}
             onOpenGlossary={() => setIsGlossaryOpen(true)}
+            lang={lang}
+            setLang={setLang}
+            t={t}
           />
         )}
       </main>
@@ -208,38 +239,38 @@ export default function App() {
       <footer className="bg-slate-900 text-slate-300 border-t-4 border-amber-500 py-8 mt-12 text-xs no-print">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-6 mb-6">
           <div>
-            <h4 className="font-bold text-white text-sm mb-2 font-serif">Adalat Companion Portal</h4>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">{t('footerTitle')}</h4>
             <p className="text-slate-400 leading-relaxed">
-              A legal literacy initiative to help self-represented litigants understand court orders, procedural requirements, and hearing schedules.
+              {t('footerDesc')}
             </p>
           </div>
 
           <div>
-            <h4 className="font-bold text-white text-sm mb-2 font-serif">Free Legal Services Helpline</h4>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">{t('footerHelplineTitle')}</h4>
             <p className="text-slate-400 leading-relaxed mb-2">
-              For free legal advice and advocate support, contact your nearest District Legal Services Authority (DLSA).
+              {t('footerHelplineDesc')}
             </p>
             <span className="inline-block px-3 py-1 bg-amber-400 text-slate-950 font-bold rounded">
-              Toll-Free Helpline: 15100
+              {t('footerTollFree')}
             </span>
           </div>
 
           <div>
-            <h4 className="font-bold text-white text-sm mb-2 font-serif">Important Disclaimer</h4>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">{t('footerDisclaimerTitle')}</h4>
             <p className="text-slate-400 leading-relaxed">
-              This portal provides document text explanations for informational purposes. It does not provide legal advice or legal opinions.
+              {t('footerDisclaimerDesc')}
             </p>
           </div>
         </div>
 
         <div className="border-t border-slate-800 pt-4 text-center text-slate-500 max-w-7xl mx-auto px-4 flex flex-wrap justify-between items-center gap-2">
-          <p>© 2026 Adalat Companion Portal — Designed for Self-Represented Litigants</p>
-          <p>Strictly Informational Educational Utility</p>
+          <p>{t('footerCopyright')}</p>
+          <p>{t('footerLegalTag')}</p>
         </div>
       </footer>
 
       {/* Rights-Awareness Chatbot Widget */}
-      <ChatWidget />
+      <ChatWidget lang={lang} />
     </div>
   );
 }
@@ -276,11 +307,13 @@ function LoadingWidget() {
 }
 
 {/* Official Portal Upload & Search Screen */}
-function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: { 
+function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t }: { 
   onSuccess: (id: string, responseData?: any) => void;
   onSelectSample: (sample: SampleOrder) => void;
   setLoading: (l: boolean) => void;
   setError: (e: string | null) => void;
+  lang: SupportedLanguage;
+  t: (key: string) => string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cnr, setCnr] = useState('');
@@ -432,19 +465,19 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
       <div className="bg-blue-900 text-white p-6 rounded-lg shadow-sm border border-blue-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <span className="inline-block text-[11px] uppercase font-bold px-2 py-0.5 bg-amber-400 text-slate-950 rounded mb-1">
-            Litigant Assistance System
+            {t('litigantBanner')}
           </span>
           <h2 className="text-xl sm:text-2xl font-bold font-serif">
-            Plain-Language Court Order Reading Portal
+            {t('mainHeading')}
           </h2>
           <p className="text-xs text-blue-100 mt-1 max-w-2xl">
-            Upload your court order copy, paste order text, or enter your 16-digit CNR number to get an accurate clause-by-clause explanation and eCourts link.
+            {t('mainSubheading')}
           </p>
         </div>
         <div className="bg-blue-950 p-3 rounded border border-blue-800 text-center shrink-0">
           <ShieldCheck size={24} className="text-amber-400 mx-auto mb-1" />
-          <span className="block text-[10px] uppercase font-bold text-slate-300">Verified Citation</span>
-          <span className="text-xs font-bold text-white">100% Clause Source Linked</span>
+          <span className="block text-[10px] uppercase font-bold text-slate-300">{t('verifiedCitation')}</span>
+          <span className="text-xs font-bold text-white">{t('clauseSourceLinked')}</span>
         </div>
       </div>
 
@@ -458,7 +491,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                 activeTab === 'upload' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              Upload PDF
+              {t('tabUpload')}
             </button>
             <button
               onClick={() => setActiveTab('text')}
@@ -466,7 +499,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                 activeTab === 'text' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              Paste Order Text
+              {t('tabText')}
             </button>
             <button
               onClick={() => setActiveTab('cnr')}
@@ -474,19 +507,19 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                 activeTab === 'cnr' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              16-Digit CNR Lookup
+              {t('tabCnr')}
             </button>
           </div>
 
           {/* Try an Example Dropdown */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-600">Try an Example:</span>
+            <span className="text-xs font-bold text-slate-600">{t('tryExample')}</span>
             <select
               value={selectedSampleId}
               onChange={handleDropdownSelect}
               className="px-3 py-1.5 text-xs font-bold rounded border border-blue-900 bg-blue-50 text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-900 cursor-pointer shadow-sm"
             >
-              <option value="">-- Select Preloaded Sample Order --</option>
+              <option value="">{t('selectExamplePlaceholder')}</option>
               {availableSamples.map((sample) => (
                 <option key={sample.id} value={sample.id}>
                   {sample.title} ({sample.badge})
@@ -510,13 +543,13 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
               onClick={() => fileInputRef.current?.click()}
             >
               <FileCheck2 size={40} className="mx-auto text-blue-900 mb-3" />
-              <h3 className="font-bold text-base text-slate-800 mb-1">Click or Drag & Drop Court Order PDF File</h3>
-              <p className="text-xs text-slate-500 mb-4">Accepts official court order PDFs, scanned certified copies, or document images</p>
+              <h3 className="font-bold text-base text-slate-800 mb-1">{t('dragDropText')}</h3>
+              <p className="text-xs text-slate-500 mb-4">{t('acceptsFilesText')}</p>
               <button 
                 type="button"
                 className="px-5 py-2 bg-blue-900 hover:bg-slate-900 text-white font-bold text-xs rounded transition-colors shadow-sm"
               >
-                Select File From Device
+                {t('selectFileBtn')}
               </button>
               <input 
                 type="file" 
@@ -532,26 +565,26 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
             <form onSubmit={handleExplainTextApi} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  16-Digit CNR Number (Optional for eCourts Link)
+                  {t('cnrInputLabel')}
                 </label>
                 <input 
                   type="text" 
                   value={cnr}
                   onChange={(e) => setCnr(e.target.value)}
-                  placeholder="e.g. MHBO010001232026"
+                  placeholder={t('cnrPlaceholder')}
                   className="w-full px-4 py-2 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Court Order Text
+                  {t('tabText')}
                 </label>
                 <textarea 
                   rows={5}
                   value={orderText}
                   onChange={(e) => setOrderText(e.target.value)}
-                  placeholder="Paste legal court order text here..."
+                  placeholder={t('orderTextPlaceholder')}
                   className="w-full px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-serif leading-relaxed"
                 />
               </div>
@@ -562,7 +595,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                   disabled={!orderText.trim()}
                   className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors shadow-sm"
                 >
-                  Explain Order (Live API Call)
+                  {t('explainBtn')}
                 </button>
 
                 <button 
@@ -571,7 +604,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                   className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs rounded transition-colors"
                   title="Uses preloaded offline JSON demo without calling API"
                 >
-                  Explain Order (Offline Demo Mode)
+                  {t('viewExplanation')} (Offline)
                 </button>
               </div>
             </form>
@@ -620,13 +653,13 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
             ) : (
               <form onSubmit={handleCnrSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Enter 16-Digit CNR Number</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">{t('cnrInputLabel')}</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
                       value={cnr}
                       onChange={(e) => setCnr(e.target.value)}
-                      placeholder="e.g. MHBO010001232026"
+                      placeholder={t('cnrPlaceholder')}
                       className="flex-1 px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
                     />
                     <button 
@@ -634,7 +667,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                       disabled={isFetching}
                       className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors"
                     >
-                      {isFetching ? "Loading..." : "Search Case Order"}
+                      {isFetching ? "Loading..." : t('lookupBtn')}
                     </button>
                   </div>
                 </div>
@@ -649,9 +682,9 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-base font-serif text-slate-900 flex items-center gap-2">
             <Scale size={18} className="text-blue-900" />
-            Official Reference Orders (Preloaded Pitch Demos)
+            {t('referenceOrdersTitle')}
           </h3>
-          <span className="text-xs text-slate-500">Select any sample to view offline plain-language explanation</span>
+          <span className="text-xs text-slate-500">{t('referenceOrdersSub')}</span>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
@@ -668,13 +701,13 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                 <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-900" />
               </div>
               <h4 className="font-bold text-sm text-slate-900 font-serif mb-1 group-hover:text-blue-900">
-                {sample.title}
+                {translateLegalText(sample.title, lang)}
               </h4>
               <p className="text-xs text-slate-600 line-clamp-2 mb-3">
-                {sample.description}
+                {sample.plainSummary[lang] || sample.plainSummary['en'] || sample.description}
               </p>
               <div className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
-                <span>View Simplified Explanation</span>
+                <span>{t('viewExplanation')}</span>
               </div>
             </div>
           ))}
@@ -685,52 +718,107 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
 }
 
 {/* Official Results & Document View Screen */}
-function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
+function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang, setLang, t }: {
   caseId: string | null;
   sample: SampleOrder | null;
   apiData?: any | null;
   onReset: () => void;
   onOpenGlossary: () => void;
+  lang: SupportedLanguage;
+  setLang: (l: SupportedLanguage) => void;
+  t: (key: string) => string;
 }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [lang, setLang] = useState('en');
   const [viewMode, setViewMode] = useState<ViewMode>('summary');
   const [activeClauseId, setActiveClauseId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Clean state reset when target props change
+  // Clean state reset when target props or language change
   useEffect(() => {
     setActiveClauseId(null);
     setCopied(false);
-    setViewMode('summary');
 
     if (apiData) {
+      const baseSummary = apiData.whatHappened || apiData.plainSummary || "Court order summary processed.";
+      const initialSummary = translateLegalText(baseSummary, lang);
+      
+      const translatedWhatYouNeedToDo = (apiData.whatYouNeedToDo || []).map((step: string) => translateLegalText(step, lang));
+      
+      const translatedClauses = (apiData.clauses || []).map((c: Clause) => ({
+        ...c,
+        plainText: translateLegalText(c.plainText, lang)
+      }));
+
+      let changedFromPrevious = apiData.changedFromPrevious;
+      if (changedFromPrevious?.changes) {
+        changedFromPrevious = {
+          ...changedFromPrevious,
+          changes: changedFromPrevious.changes.map((c: string) => translateLegalText(c, lang))
+        };
+      }
+
       setData({
-        plainSummary: apiData.whatHappened || apiData.plainSummary || "Court order summary processed.",
-        whatYouNeedToDo: apiData.whatYouNeedToDo || [],
+        plainSummary: initialSummary,
+        whatYouNeedToDo: translatedWhatYouNeedToDo,
         keyDates: apiData.keyDates || [],
-        whereThisStands: apiData.whereThisStands || "",
-        clauses: apiData.clauses || [],
-        keyFacts: apiData.keyFacts || { parties: [], nextHearingDate: null, stage: null },
+        whereThisStands: translateLegalText(apiData.whereThisStands || apiData.keyFacts?.stage || "", lang),
+        clauses: translatedClauses,
+        keyFacts: {
+          parties: (apiData.keyFacts?.parties || []).map((p: string) => translateLegalText(p, lang)),
+          nextHearingDate: apiData.keyFacts?.nextHearingDate || null,
+          stage: translateLegalText(apiData.keyFacts?.stage || "", lang),
+          courtName: translateLegalText(apiData.keyFacts?.courtName || "", lang),
+          caseTitle: translateLegalText(apiData.keyFacts?.caseTitle || "", lang)
+        },
         caseNumber: apiData.caseNumber,
         ecourtsLink: apiData.ecourtsLink || (apiData.caseNumber ? `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${apiData.caseNumber}` : 'https://services.ecourts.gov.in/ecourtindia_v6/'),
+        changedFromPrevious: changedFromPrevious,
         language: lang
       });
       setLoading(false);
+
+      // Dynamic Gemini fallback if not already localized by dictionary
+      if (lang !== 'en' && initialSummary === baseSummary) {
+        axios.post(`${API_BASE}/translate`, { text: baseSummary, targetLang: lang })
+          .then(res => {
+            if (res.data?.translatedText && res.data.translatedText !== baseSummary) {
+              setData((prev: any) => prev ? { ...prev, plainSummary: res.data.translatedText } : prev);
+            }
+          })
+          .catch(err => console.warn('Dynamic translation fallback error:', err));
+      }
+
       return;
     }
 
     if (sample) {
-      const summaryText = sample.plainSummary[lang] || sample.plainSummary['en'];
-      const clausesList = sample.clauses[lang] || sample.clauses['en'] || sample.clauses.en;
+      const summaryText = sample.plainSummary[lang] || sample.plainSummary['en'] || translateLegalText(sample.plainSummary['en'], lang);
+      const clausesList = sample.clauses[lang] || sample.clauses['en'] || [];
+      const whatYouNeedToDo = (sample as any).whatYouNeedToDo ? 
+        (sample as any).whatYouNeedToDo.map((step: string) => translateLegalText(step, lang)) : [];
+
+      let changedFromPrevious = sample.changedFromPrevious;
+      if (changedFromPrevious?.changes) {
+        changedFromPrevious = {
+          ...changedFromPrevious,
+          changes: changedFromPrevious.changes.map(c => translateLegalText(c, lang))
+        };
+      }
+
       setData({
         plainSummary: summaryText,
         clauses: clausesList,
-        keyFacts: sample.keyFacts,
+        whatYouNeedToDo: whatYouNeedToDo,
+        keyFacts: {
+          ...sample.keyFacts,
+          courtName: translateLegalText(sample.keyFacts.courtName || '', lang),
+          stage: translateLegalText(sample.keyFacts.stage || '', lang),
+          parties: sample.keyFacts.parties?.map(p => translateLegalText(p, lang))
+        },
         caseNumber: sample.keyFacts.cnrNumber,
         ecourtsLink: `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${sample.keyFacts.cnrNumber}`,
-        changedFromPrevious: sample.changedFromPrevious,
+        changedFromPrevious: changedFromPrevious,
         language: lang
       });
       setLoading(false);
@@ -748,7 +836,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
         if (isMounted) {
           const fallbackSample = SAMPLE_ORDERS[0];
           setData({
-            plainSummary: fallbackSample.plainSummary[lang] || fallbackSample.plainSummary['en'],
+            plainSummary: fallbackSample.plainSummary[lang] || fallbackSample.plainSummary['en'] || translateLegalText(fallbackSample.plainSummary['en'], lang),
             clauses: fallbackSample.clauses[lang] || fallbackSample.clauses['en'],
             keyFacts: fallbackSample.keyFacts,
             changedFromPrevious: fallbackSample.changedFromPrevious,
@@ -851,16 +939,16 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           <AlertCircle size={22} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold text-xs uppercase tracking-wider text-amber-900 font-serif">
-              MANDATORY STATUTORY DISCLAIMER
+              {t('disclaimerTitle')}
             </h4>
             <p className="text-xs sm:text-sm font-semibold text-amber-950 leading-relaxed mt-0.5">
-              This is an automated plain-language summary, not legal advice. Please consult a lawyer or legal aid service for guidance on your case.
+              {t('disclaimerText')}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 bg-yellow-200 text-slate-950 text-xs font-extrabold px-3 py-1.5 rounded-full border border-amber-400 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
-          <span>Yellow Highlighter Active</span>
+          <span>{t('highlighterActive')}</span>
         </div>
       </div>
 
@@ -872,12 +960,12 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
             className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
           >
             <ArrowLeft size={16} />
-            <span>Return to Search</span>
+            <span>{t('returnToSearch')}</span>
           </button>
 
           <div>
             <h2 className="text-lg font-bold font-serif text-slate-900">
-              {data.keyFacts?.caseTitle || "Court Order Explanation"}
+              {data.keyFacts?.caseTitle || t('explanationTitle')}
             </h2>
             <p className="text-xs text-slate-500 font-mono">CNR: {data.caseNumber || data.keyFacts?.cnrNumber || 'Not Specified'}</p>
           </div>
@@ -895,23 +983,22 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
             className="px-3 py-1.5 rounded bg-blue-900 hover:bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
           >
             <ExternalLink size={14} className="text-amber-400" />
-            <span>View Original on eCourts</span>
+            <span>{t('viewOnECourts')}</span>
           </a>
 
           {/* Output Language Selector */}
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-bold text-slate-800">
-            <span className="text-slate-500">Output Language:</span>
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-bold text-slate-800 shadow-sm">
+            <span className="text-slate-500">{t('outputLangLabel')}</span>
             <select 
               value={lang}
-              onChange={(e) => setLang(e.target.value)}
+              onChange={(e) => setLang(e.target.value as SupportedLanguage)}
               className="bg-transparent focus:outline-none font-bold text-blue-900 cursor-pointer"
             >
-              <option value="en">English</option>
-              <option value="hi">हिंदी (Hindi)</option>
-              <option value="ta">தமிழ் (Tamil)</option>
-              <option value="te">తెలుగు (Telugu)</option>
-              <option value="kn">ಕನ್ನಡ (Kannada)</option>
-              <option value="bn">বাংলা (Bengali)</option>
+              {SUPPORTED_LANGUAGES.map((opt) => (
+                <option key={opt.code} value={opt.code}>
+                  {opt.nativeName} ({opt.name})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -921,7 +1008,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
             className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
           >
             {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-            <span>{copied ? 'Copied' : 'Copy Text'}</span>
+            <span>{copied ? t('copiedBtn') : t('copyBtn')}</span>
           </button>
 
           {/* Print */}
@@ -930,7 +1017,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
             className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
           >
             <Printer size={14} />
-            <span>Print Official Summary</span>
+            <span>{t('printBtn')}</span>
           </button>
         </div>
       </div>
@@ -944,7 +1031,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           }`}
         >
           <FileText size={16} />
-          Plain-Language Order Explanation
+          {t('tabSummary')}
         </button>
         <button
           onClick={() => setViewMode('split')}
@@ -953,7 +1040,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           }`}
         >
           <Columns size={16} />
-          Side-by-Side Judicial Inspector
+          {t('tabSplit')}
         </button>
         <button
           onClick={() => setViewMode('timeline')}
@@ -962,7 +1049,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           }`}
         >
           <Scale size={16} />
-          Hearing Schedule & Litigant Checklist
+          {t('tabTimeline')}
         </button>
       </div>
 
@@ -976,7 +1063,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                 <div className="govt-card-header flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-bold text-sm text-slate-900 font-serif flex items-center gap-2">
                     <FileText size={18} className="text-blue-900" />
-                    Plain Language Explanation of Order
+                    {t('explanationTitle')}
                   </h3>
                   <div className="flex items-center gap-3">
                     <a
@@ -986,7 +1073,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                       className="text-xs font-bold text-blue-900 hover:underline flex items-center gap-1"
                     >
                       <ExternalLink size={12} />
-                      View Original on eCourts ↗
+                      {t('viewOnECourts')} ↗
                     </a>
                   </div>
                 </div>
@@ -1001,8 +1088,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               {data.whatYouNeedToDo && data.whatYouNeedToDo.length > 0 && (
                 <div className="govt-card p-5 border-l-4 border-l-amber-500 bg-amber-50/50 space-y-3">
                   <h4 className="font-extrabold text-xs sm:text-sm font-serif text-slate-900 uppercase flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-yellow-300 text-slate-950 font-sans font-black rounded border border-amber-400">KEY ACTIONS</span>
-                    What You Need To Do (Procedural Steps):
+                    <span className="px-2 py-0.5 bg-yellow-300 text-slate-950 font-sans font-black rounded border border-amber-400">{t('keyActionsBadge')}</span>
+                    {t('whatYouNeedToDoTitle')}
                   </h4>
                   <ul className="space-y-2">
                     {data.whatYouNeedToDo.map((step: string, i: number) => (
@@ -1019,8 +1106,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               {data.changedFromPrevious?.changed && (
                 <div className="p-5 rounded border-2 border-amber-400 bg-yellow-100 text-amber-950 space-y-2 shadow-sm">
                   <h4 className="font-bold text-sm flex items-center gap-2 text-slate-950 font-serif">
-                    <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-sans font-bold text-xs rounded">IMPORTANT UPDATE</span>
-                    Key Updates from Previous Hearing Order:
+                    <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-sans font-bold text-xs rounded">{t('importantUpdateBadge')}</span>
+                    {t('keyUpdatesTitle')}
                   </h4>
                   <ul className="space-y-1.5 pl-2 text-xs font-bold text-slate-900">
                     {data.changedFromPrevious.changes.map((c: string, i: number) => (
@@ -1036,8 +1123,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               {data.clauses && data.clauses.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-bold text-sm font-serif text-slate-900 flex items-center gap-2">
-                    <span>Detailed Clause Breakdown & Source Verification</span>
-                    <span className="text-[11px] font-sans font-bold text-slate-700 bg-yellow-200 px-2 py-0.5 rounded-full border border-amber-300">Highlighted</span>
+                    <span>{t('clauseBreakdownTitle')}</span>
+                    <span className="text-[11px] font-sans font-bold text-slate-700 bg-yellow-200 px-2 py-0.5 rounded-full border border-amber-300">{t('highlightedBadge')}</span>
                   </h3>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
@@ -1052,7 +1139,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                             <p className="font-semibold text-sm text-slate-900">
                               {renderGlossaryText(clause.plainText)}
                             </p>
-                            <span className="text-xs text-slate-500 mt-1 inline-block">Official Record Citation: Page {clause.pageNumber}</span>
+                            <span className="text-xs text-slate-500 mt-1 inline-block">{t('officialRecordCitation')} {clause.pageNumber}</span>
                           </div>
                         </div>
                         <ChevronRight size={16} className={`text-slate-400 transition-transform ${activeClauseId === clause.id ? 'rotate-90 text-blue-900' : ''}`} />
@@ -1060,7 +1147,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
                       {activeClauseId === clause.id && (
                         <div className="mt-3 p-3 rounded bg-slate-100 border border-slate-300 text-xs font-serif italic text-slate-800">
-                          <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">Original Legal Order Text:</span>
+                          <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">{t('originalLegalText')}</span>
                           "{clause.originalText}"
                         </div>
                       )}
@@ -1074,13 +1161,13 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           {viewMode === 'split' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm font-serif text-slate-900">Side-by-Side Document Source Comparison</h3>
-                <span className="text-xs text-slate-500">Click any row to focus matched clause text</span>
+                <h3 className="font-bold text-sm font-serif text-slate-900">{t('sideBySideTitle')}</h3>
+                <span className="text-xs text-slate-500">{t('sideBySideSub')}</span>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase text-blue-900">Plain Language Translation</h4>
+                  <h4 className="text-xs font-bold uppercase text-blue-900">{t('plainTranslationCol')}</h4>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
                       key={clause.id}
@@ -1095,7 +1182,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase text-amber-800">Original Certified Order Text</h4>
+                  <h4 className="text-xs font-bold uppercase text-amber-800">{t('originalTextCol')}</h4>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
                       key={clause.id}
@@ -1104,7 +1191,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                         activeClauseId === clause.id ? 'border-amber-600 bg-amber-50 text-slate-900' : 'text-slate-700'
                       }`}
                     >
-                      <span className="block text-[10px] font-sans not-italic font-bold text-slate-500 mb-0.5">Page {clause.pageNumber}</span>
+                      <span className="block text-[10px] font-sans not-italic font-bold text-slate-500 mb-0.5">{t('officialRecordCitation')} {clause.pageNumber}</span>
                       "{clause.originalText}"
                     </div>
                   ))}
@@ -1115,8 +1202,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
           {viewMode === 'timeline' && (
             <div className="space-y-6">
-              <TimelineWidget keyFacts={data.keyFacts} darkMode={false} />
-              <ActionChecklist />
+              <TimelineWidget keyFacts={data.keyFacts} darkMode={false} lang={lang} />
+              <ActionChecklist lang={lang} />
             </div>
           )}
         </div>
@@ -1125,12 +1212,12 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
         <div className="space-y-4">
           <div className="govt-card">
             <div className="govt-card-header flex items-center justify-between">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">Official Case Particulars</h3>
-              <span className="text-[10px] font-bold bg-yellow-200 text-slate-950 px-1.5 py-0.5 rounded border border-amber-300">Highlighted</span>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">{t('caseParticularsTitle')}</h3>
+              <span className="text-[10px] font-bold bg-yellow-200 text-slate-950 px-1.5 py-0.5 rounded border border-amber-300">{t('highlightedBadge')}</span>
             </div>
             <div className="p-4 space-y-3 text-xs">
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase">Parties</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">{t('partiesLabel')}</span>
                 <ul className="font-semibold text-slate-900 space-y-0.5 mt-0.5">
                   {data.keyFacts?.parties?.map((p: string, i: number) => (
                     <li key={i}>{p}</li>
@@ -1139,19 +1226,19 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase">Court & Bench</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">{t('courtBenchLabel')}</span>
                 <span className="font-semibold text-slate-900">{data.keyFacts?.courtName || 'District Court'}</span>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Stage</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{t('stageLabel')}</span>
                 <span className="font-extrabold text-slate-950 bg-yellow-200 px-2 py-1 rounded border-b-2 border-amber-400 inline-block">
                   {data.whereThisStands || data.keyFacts?.stage || 'Interim Stage'}
                 </span>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Next Hearing Date</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{t('nextHearingDateLabel')}</span>
                 <span className="font-black text-slate-950 bg-yellow-300 border-b-2 border-amber-500 px-2 py-1 rounded text-xs inline-block shadow-sm">
                   {data.keyFacts?.nextHearingDate || 'Not Specified'}
                 </span>
@@ -1162,16 +1249,16 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           <div className="govt-card p-4 space-y-2">
             <h4 className="font-bold text-xs text-slate-900 uppercase flex items-center gap-1.5">
               <BookOpen size={16} className="text-blue-900" />
-              Legal Glossary Search
+              {t('legalGlossarySearchTitle')}
             </h4>
             <p className="text-xs text-slate-600">
-              Need assistance understanding terms like <em>ex parte</em>, <em>remit</em>, or <em>surety bond</em>?
+              {t('legalGlossarySearchDesc')}
             </p>
             <button
               onClick={onOpenGlossary}
               className="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-800 transition-colors"
             >
-              Open Statutory Glossary Panel
+              {t('openGlossaryPanelBtn')}
             </button>
           </div>
         </div>

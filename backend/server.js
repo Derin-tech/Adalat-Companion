@@ -637,6 +637,49 @@ app.post('/api/explain', async (req, res) => {
   }
 });
 
+// POST /api/translate
+app.post('/api/translate', async (req, res) => {
+  const { text, targetLang } = req.body;
+  if (!text || !targetLang || targetLang === 'en') {
+    return res.json({ translatedText: text });
+  }
+
+  const langNames = {
+    hi: 'Hindi',
+    ta: 'Tamil',
+    te: 'Telugu',
+    kn: 'Kannada',
+    bn: 'Bengali'
+  };
+
+  const targetLangName = langNames[targetLang] || targetLang;
+
+  try {
+    if (GEMINI_API_KEY) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const prompt = `Translate the following plain-language legal explanation into clear, accessible ${targetLangName} for a self-represented litigant. Return ONLY the translation without quotes or markdown:\n\n${text}`;
+
+      const response = await axios.post(
+        geminiUrl,
+        {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.1 }
+        },
+        { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
+      );
+
+      const translated = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (translated) {
+        return res.json({ translatedText: translated });
+      }
+    }
+  } catch (err) {
+    console.error(`Translation error for ${targetLang}:`, err.message);
+  }
+
+  res.json({ translatedText: text });
+});
+
 // Helper to read/write examples JSON
 const EXAMPLES_FILE_PATH = path.join(__dirname, 'data', 'examples.json');
 
