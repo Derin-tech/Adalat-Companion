@@ -1,0 +1,10 @@
+PyMuPDF
+fastapi
+uvicorn
+python-multipart
+pydantic
+requests
+beautifulsoup4
+python-dotenv
+google-genai
+

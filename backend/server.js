@@ -48,17 +48,15 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       status: 'ready'
     });
   } catch (error) {
-    console.error('AI pipeline upload failed, falling back to mock data:', error.message);
+    console.error('AI pipeline upload failed:', error.message);
     
     // Clean up upload
     if (fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
     
-    res.json({
-      caseId: 'mock-case-123',
-      status: 'ready',
-      fallback: true
+    res.status(500).json({
+      error: 'AI pipeline upload failed: ' + (error.response?.data?.detail || error.message)
     });
   }
 });
@@ -70,14 +68,17 @@ app.get('/api/summary/:caseId', async (req, res) => {
     const response = await axios.get(`${AI_PIPELINE_URL}/summary/${req.params.caseId}?lang=${lang}`);
     res.json(response.data);
   } catch (error) {
-    console.error('AI pipeline summary failed, falling back to mock data:', error.message);
-    const mockData = getMockData('sample1.json');
-    if (mockData) {
-      mockData.language = req.query.lang || 'en';
-      res.json(mockData);
-    } else {
-      res.status(500).json({ error: 'Mock data not found' });
+    console.error('AI pipeline summary failed:', error.message);
+    
+    if (req.params.caseId.startsWith('mock-case-') || req.params.caseId.startsWith('sample-')) {
+      const mockData = getMockData('sample1.json');
+      if (mockData) {
+        mockData.language = req.query.lang || 'en';
+        return res.json(mockData);
+      }
     }
+    
+    res.status(500).json({ error: 'Failed to fetch summary: ' + (error.response?.data?.detail || error.message) });
   }
 });
 

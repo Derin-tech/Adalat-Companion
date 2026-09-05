@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
   FileText, ChevronRight, AlertCircle, CheckCircle2, 
   BookOpen, Scale, Columns, Copy, ArrowLeft, ShieldCheck, Printer, Check, 
-  Landmark, PhoneCall, FileCheck2, ExternalLink, Plus, Trash2, X
+  Landmark, PhoneCall, FileCheck2, ExternalLink, Plus, Trash2
 } from 'lucide-react';
 import { SAMPLE_ORDERS } from './data/sampleOrders';
 import type { SampleOrder, Clause } from './data/sampleOrders';
@@ -12,12 +12,6 @@ import VoicePlayer from './components/VoicePlayer';
 import TimelineWidget from './components/TimelineWidget';
 import ActionChecklist from './components/ActionChecklist';
 import ChatWidget from './components/ChatWidget';
-import { auth, googleProvider } from './firebase';
-import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import type { User } from 'firebase/auth';
-
-import type { SupportedLanguage } from './data/translations';
-import { SUPPORTED_LANGUAGES, UI_TRANSLATIONS, translateLegalText } from './data/translations';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -31,7 +25,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
-    const [lang, setLang] = useState<SupportedLanguage>('en');
+  const [lang, setLang] = useState<SupportedLanguage>('en');
     const t = (key: string) => UI_TRANSLATIONS[lang]?.[key] || UI_TRANSLATIONS.en[key] || key;
 
     const [user, setUser] = useState<User | null>(null);
@@ -50,6 +44,7 @@ export default function App() {
         console.warn('Firebase onAuthStateChanged error:', e);
       }
     }, []);
+
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -107,46 +102,27 @@ export default function App() {
     setUser(null);
   };
 
+
   return (
     <div className={`min-h-screen flex flex-col font-sans bg-slate-100 text-slate-900 ${getFontSizeClass()}`}>
       {/* 1. Official Government Top Utility Bar */}
       <div className="govt-topbar text-white py-1.5 px-4 text-xs no-print">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-slate-300">{t('portalName')}</span>
+            <span className="font-semibold text-slate-300">National Legal Aid & Literacy Support Portal</span>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-400 hidden sm:inline">{t('govtProject')}</span>
+            <span className="text-slate-400 hidden sm:inline">Government of India Project</span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-300">
             <div className="flex items-center gap-1">
               <PhoneCall size={12} className="text-amber-400" />
-              <span>{t('helpline')}</span>
+              <span>NALSA Legal Aid Helpline: <strong className="text-white">15100</strong></span>
             </div>
             <span className="text-slate-600">|</span>
-
-            {/* Language Selector in Top Bar */}
-            <div className="flex items-center gap-1 text-xs">
-              <span className="text-slate-400">{t('language')}:</span>
-              <select
-                value={lang}
-                onChange={(e) => setLang(e.target.value as SupportedLanguage)}
-                className="bg-slate-800 text-amber-400 border border-slate-700 rounded px-1.5 py-0.5 text-xs font-bold focus:outline-none cursor-pointer"
-                title="Select Interface Language"
-              >
-                {SUPPORTED_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code} className="bg-slate-900 text-white font-medium">
-                    {l.nativeName} ({l.name})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <span className="text-slate-600">|</span>
-
             {/* Accessibility Font Resizer */}
             <div className="flex items-center gap-1 font-mono text-xs">
-                <span className="text-slate-400 mr-1 hidden sm:inline">{t('textResizer')}</span>
+              <span className="text-slate-400 mr-1">Text:</span>
               <button 
                 type="button"
                 onClick={() => setFontSize('normal')} 
@@ -164,44 +140,6 @@ export default function App() {
                 {fontSize === 'xlarge' ? 'A++' : 'A+'}
               </button>
             </div>
-
-            <span className="text-slate-600">|</span>
-
-            {/* User Auth */}
-            {user ? (
-              <div className="relative group">
-                <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                  {user.photoURL ? (
-                    <img src={user.photoURL} alt="Profile" className="w-6 h-6 rounded-full border border-slate-600" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-[10px] font-bold text-white">
-                      {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
-                    </div>
-                  )}
-                  <span className="font-semibold text-slate-300 hidden sm:inline max-w-[100px] truncate">
-                    {user.displayName || 'User'}
-                  </span>
-                </button>
-                <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-md shadow-lg border border-slate-200 py-1 hidden group-hover:block z-50">
-                  <button 
-                    onClick={handleSignOut}
-                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-blue-900 font-bold"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button 
-                onClick={() => setIsSignInModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-blue-950 font-bold text-xs border border-amber-500 hover:bg-slate-50 transition-colors shadow-sm shrink-0"
-              >
-                <div className="w-3.5 h-3.5 rounded-full bg-blue-900 text-white flex items-center justify-center text-[8px]">
-                  <span>👤</span>
-                </div>
-                Sign In
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -213,16 +151,16 @@ export default function App() {
             className="flex items-center gap-4 cursor-pointer" 
             onClick={handleReset}
           >
-            <div className="w-12 h-12 rounded-lg bg-white p-1 border-2 border-amber-500 flex items-center justify-center text-slate-900 shadow shrink-0 overflow-hidden">
+            <div className="w-12 h-12 rounded-xl bg-white p-1 border-2 border-amber-500 flex items-center justify-center shadow overflow-hidden shrink-0">
               <img src="/logo.png" alt="Adalat Companion Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-extrabold tracking-tight font-serif text-white">
-                  {t('portalTitleHindi')} <span className="text-amber-400 font-sans font-bold text-xl">| {t('portalTitleEng')}</span>
+                  अदालत साथी <span className="text-amber-400 font-sans font-bold text-xl">| Adalat Companion</span>
                 </h1>
               </div>
-              <p className="text-xs text-slate-300 font-medium">{t('portalSubtitle')}</p>
+              <p className="text-xs text-slate-300 font-medium">Court Order Text Simplification & Source Verification Portal</p>
             </div>
           </div>
 
@@ -232,7 +170,7 @@ export default function App() {
               className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition-colors"
             >
               <BookOpen size={16} className="text-amber-400" />
-              <span>{t('glossaryBtn')}</span>
+              <span>Legal Term Glossary</span>
             </button>
           </div>
         </div>
@@ -244,7 +182,7 @@ export default function App() {
               className={`cursor-pointer ${route === 'main' && !caseId && !selectedSample && !apiData ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} 
               onClick={handleReset}
             >
-              {t('navExplainer')}
+              Order Explainer
             </span>
             <span>•</span>
             <span 
@@ -254,15 +192,15 @@ export default function App() {
                 setRoute('admin');
               }}
             >
-              {t('navAdmin')}
+              Admin Portal (/admin)
             </span>
             <span>•</span>
             <span className="hover:text-white cursor-pointer" onClick={() => setIsGlossaryOpen(true)}>
-              {t('navGlossary')}
+              Glossary Terms
             </span>
             <span>•</span>
             <a href="https://ecourts.gov.in" target="_blank" rel="noreferrer" className="hover:text-white flex items-center gap-1">
-              {t('navECourts')}
+              eCourts Official Portal ↗
             </a>
           </div>
         </div>
@@ -293,8 +231,6 @@ export default function App() {
             }}
             setLoading={setLoading} 
             setError={setError} 
-            lang={lang}
-            t={t}
           />
         ) : (
           <ResultsScreen 
@@ -303,9 +239,6 @@ export default function App() {
             apiData={apiData}
             onReset={handleReset}
             onOpenGlossary={() => setIsGlossaryOpen(true)}
-            lang={lang}
-            setLang={setLang}
-            t={t}
           />
         )}
       </main>
@@ -321,102 +254,38 @@ export default function App() {
       <footer className="bg-slate-900 text-slate-300 border-t-4 border-amber-500 py-8 mt-12 text-xs no-print">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-6 mb-6">
           <div>
-            <h4 className="font-bold text-white text-sm mb-2 font-serif">{t('footerTitle')}</h4>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">Adalat Companion Portal</h4>
             <p className="text-slate-400 leading-relaxed">
-              {t('footerDesc')}
+              A legal literacy initiative to help self-represented litigants understand court orders, procedural requirements, and hearing schedules.
             </p>
           </div>
 
           <div>
-            <h4 className="font-bold text-white text-sm mb-2 font-serif">{t('footerHelplineTitle')}</h4>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">Free Legal Services Helpline</h4>
             <p className="text-slate-400 leading-relaxed mb-2">
-              {t('footerHelplineDesc')}
+              For free legal advice and advocate support, contact your nearest District Legal Services Authority (DLSA).
             </p>
             <span className="inline-block px-3 py-1 bg-amber-400 text-slate-950 font-bold rounded">
-              {t('footerTollFree')}
+              Toll-Free Helpline: 15100
             </span>
           </div>
 
           <div>
-            <h4 className="font-bold text-white text-sm mb-2 font-serif">{t('footerDisclaimerTitle')}</h4>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">Important Disclaimer</h4>
             <p className="text-slate-400 leading-relaxed">
-              {t('footerDisclaimerDesc')}
+              This portal provides document text explanations for informational purposes. It does not provide legal advice or legal opinions.
             </p>
           </div>
         </div>
 
         <div className="border-t border-slate-800 pt-4 text-center text-slate-500 max-w-7xl mx-auto px-4 flex flex-wrap justify-between items-center gap-2">
-          <p>{t('footerCopyright')}</p>
-          <p>{t('footerLegalTag')}</p>
+          <p>© 2026 Adalat Companion Portal — Designed for Self-Represented Litigants</p>
+          <p>Strictly Informational Educational Utility</p>
         </div>
       </footer>
 
       {/* Rights-Awareness Chatbot Widget */}
-        <ChatWidget lang={lang} />
-
-      {/* Sign-In Modal */}
-      {isSignInModalOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/60 z-[200] flex items-center justify-center p-4 transition-opacity"
-          onClick={() => setIsSignInModalOpen(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setIsSignInModalOpen(false)}
-          tabIndex={-1}
-        >
-          <div 
-            className="bg-white rounded-2xl p-8 max-w-[400px] w-full shadow-2xl relative"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="signin-title"
-          >
-            <button 
-              onClick={() => setIsSignInModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-              aria-label="Close modal"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="flex flex-col items-center text-center space-y-4 pt-2">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 border border-amber-200 flex items-center justify-center text-blue-900 mb-2">
-                <Scale size={24} />
-              </div>
-              
-              <div>
-                <h2 id="signin-title" className="text-2xl font-bold font-serif text-slate-900 mb-2">
-                  Sign in to Adalat Companion
-                </h2>
-                <p className="text-sm text-slate-500 leading-relaxed max-w-[280px] mx-auto">
-                  Access saved cases, glossary bookmarks, and personalized assistance.
-                </p>
-              </div>
-
-              {signInError && (
-                <div className="w-full mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs text-left flex items-start gap-2">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600" />
-                  <span>{signInError}</span>
-                </div>
-              )}
-
-              <div className="w-full pt-4">
-                <button 
-                  onClick={handleGoogleSignIn}
-                  disabled={isSigningIn}
-                  className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm transition-all text-sm font-semibold text-slate-700 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  {isSigningIn ? 'Signing in...' : 'Continue with Google'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ChatWidget />
     </div>
   );
 }
@@ -426,8 +295,8 @@ function LoadingWidget() {
   const [step, setStep] = useState(0);
   const steps = [
     "Reading court order text & extracting clauses...",
-    "Connecting to Gemini 3.6 Flash legal translation model...",
-    "Generating plain-language summary & identifying statutory terms...",
+    "Connecting to central records database...",
+    "Retrieving plain-language clause definitions...",
     "Validating CNR & constructing eCourts verification link..."
   ];
 
@@ -441,10 +310,10 @@ function LoadingWidget() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center govt-card p-12 space-y-4">
       <div className="relative w-16 h-16 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full border-4 border-blue-900/20 border-t-blue-900 animate-spin"></div>
-        <Scale size={28} className="text-blue-900 animate-pulse" />
+        <div className="absolute inset-0 rounded-full border-4 border-slate-300 border-t-slate-700 animate-spin"></div>
+        <Scale size={28} className="text-slate-700" />
       </div>
-      <h3 className="text-lg font-bold font-serif text-slate-900">Generating Plain-Language Explanation...</h3>
+      <h3 className="text-lg font-bold font-serif text-slate-900">Processing Document Translation...</h3>
       <p className="text-xs font-semibold text-blue-900 bg-blue-50 px-4 py-1.5 rounded border border-blue-200">
         {steps[step]}
       </p>
@@ -453,13 +322,11 @@ function LoadingWidget() {
 }
 
 {/* Official Portal Upload & Search Screen */}
-function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t }: { 
+function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: { 
   onSuccess: (id: string, responseData?: any) => void;
   onSelectSample: (sample: SampleOrder) => void;
   setLoading: (l: boolean) => void;
   setError: (e: string | null) => void;
-  lang: SupportedLanguage;
-  t: (key: string) => string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cnr, setCnr] = useState('');
@@ -541,8 +408,8 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
       onSuccess(res.data.caseId);
     } catch (err: any) {
       console.error(err);
-      setError('Notice: Document upload service offline. Loaded fallback reference order.');
-      onSelectSample(SAMPLE_ORDERS[0]);
+      const errMsg = err.response?.data?.error || 'Document upload failed. Please try again.';
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -611,19 +478,19 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
       <div className="bg-blue-900 text-white p-6 rounded-lg shadow-sm border border-blue-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <span className="inline-block text-[11px] uppercase font-bold px-2 py-0.5 bg-amber-400 text-slate-950 rounded mb-1">
-            {t('litigantBanner')}
+            Litigant Assistance System
           </span>
           <h2 className="text-xl sm:text-2xl font-bold font-serif">
-            {t('mainHeading')}
+            Plain-Language Court Order Reading Portal
           </h2>
           <p className="text-xs text-blue-100 mt-1 max-w-2xl">
-            {t('mainSubheading')}
+            Upload your court order copy, paste order text, or enter your 16-digit CNR number to get an accurate clause-by-clause explanation and eCourts link.
           </p>
         </div>
         <div className="bg-blue-950 p-3 rounded border border-blue-800 text-center shrink-0">
           <ShieldCheck size={24} className="text-amber-400 mx-auto mb-1" />
-          <span className="block text-[10px] uppercase font-bold text-slate-300">{t('verifiedCitation')}</span>
-          <span className="text-xs font-bold text-white">{t('clauseSourceLinked')}</span>
+          <span className="block text-[10px] uppercase font-bold text-slate-300">Verified Citation</span>
+          <span className="text-xs font-bold text-white">100% Clause Source Linked</span>
         </div>
       </div>
 
@@ -637,7 +504,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
                 activeTab === 'upload' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              {t('tabUpload')}
+              Upload PDF
             </button>
             <button
               onClick={() => setActiveTab('text')}
@@ -645,7 +512,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
                 activeTab === 'text' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              {t('tabText')}
+              Paste Order Text
             </button>
             <button
               onClick={() => setActiveTab('cnr')}
@@ -653,19 +520,19 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
                 activeTab === 'cnr' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              {t('tabCnr')}
+              16-Digit CNR Lookup
             </button>
           </div>
 
           {/* Try an Example Dropdown */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-600">{t('tryExample')}</span>
+            <span className="text-xs font-bold text-slate-600">Try an Example:</span>
             <select
               value={selectedSampleId}
               onChange={handleDropdownSelect}
               className="px-3 py-1.5 text-xs font-bold rounded border border-blue-900 bg-blue-50 text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-900 cursor-pointer shadow-sm"
             >
-              <option value="">{t('selectExamplePlaceholder')}</option>
+              <option value="">-- Select Preloaded Sample Order --</option>
               {availableSamples.map((sample) => (
                 <option key={sample.id} value={sample.id}>
                   {sample.title} ({sample.badge})
@@ -689,13 +556,13 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
               onClick={() => fileInputRef.current?.click()}
             >
               <FileCheck2 size={40} className="mx-auto text-blue-900 mb-3" />
-              <h3 className="font-bold text-base text-slate-800 mb-1">{t('dragDropText')}</h3>
-              <p className="text-xs text-slate-500 mb-4">{t('acceptsFilesText')}</p>
+              <h3 className="font-bold text-base text-slate-800 mb-1">Click or Drag & Drop Court Order PDF File</h3>
+              <p className="text-xs text-slate-500 mb-4">Accepts official court order PDFs, scanned certified copies, or document images</p>
               <button 
                 type="button"
                 className="px-5 py-2 bg-blue-900 hover:bg-slate-900 text-white font-bold text-xs rounded transition-colors shadow-sm"
               >
-                {t('selectFileBtn')}
+                Select File From Device
               </button>
               <input 
                 type="file" 
@@ -711,26 +578,26 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
             <form onSubmit={handleExplainTextApi} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  {t('cnrInputLabel')}
+                  16-Digit CNR Number (Optional for eCourts Link)
                 </label>
                 <input 
                   type="text" 
                   value={cnr}
                   onChange={(e) => setCnr(e.target.value)}
-                  placeholder={t('cnrPlaceholder')}
+                  placeholder="e.g. MHBO010001232026"
                   className="w-full px-4 py-2 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  {t('tabText')}
+                  Court Order Text
                 </label>
                 <textarea 
                   rows={5}
                   value={orderText}
                   onChange={(e) => setOrderText(e.target.value)}
-                  placeholder={t('orderTextPlaceholder')}
+                  placeholder="Paste legal court order text here..."
                   className="w-full px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-serif leading-relaxed"
                 />
               </div>
@@ -741,7 +608,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
                   disabled={!orderText.trim()}
                   className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors shadow-sm"
                 >
-                  {t('explainBtn')}
+                  Explain Order (Live API Call)
                 </button>
 
                 <button 
@@ -750,7 +617,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
                   className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs rounded transition-colors"
                   title="Uses preloaded offline JSON demo without calling API"
                 >
-                  {t('viewExplanation')} (Offline)
+                  Explain Order (Offline Demo Mode)
                 </button>
               </div>
             </form>
@@ -799,13 +666,13 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
             ) : (
               <form onSubmit={handleCnrSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">{t('cnrInputLabel')}</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Enter 16-Digit CNR Number</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
                       value={cnr}
                       onChange={(e) => setCnr(e.target.value)}
-                      placeholder={t('cnrPlaceholder')}
+                      placeholder="e.g. MHBO010001232026"
                       className="flex-1 px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
                     />
                     <button 
@@ -813,7 +680,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
                       disabled={isFetching}
                       className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors"
                     >
-                      {isFetching ? "Loading..." : t('lookupBtn')}
+                      {isFetching ? "Loading..." : "Search Case Order"}
                     </button>
                   </div>
                 </div>
@@ -828,9 +695,9 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-base font-serif text-slate-900 flex items-center gap-2">
             <Scale size={18} className="text-blue-900" />
-            {t('referenceOrdersTitle')}
+            Official Reference Orders (Preloaded Pitch Demos)
           </h3>
-          <span className="text-xs text-slate-500">{t('referenceOrdersSub')}</span>
+          <span className="text-xs text-slate-500">Select any sample to view offline plain-language explanation</span>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
@@ -847,13 +714,13 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
                 <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-900" />
               </div>
               <h4 className="font-bold text-sm text-slate-900 font-serif mb-1 group-hover:text-blue-900">
-                {translateLegalText(sample.title, lang)}
+                {sample.title}
               </h4>
               <p className="text-xs text-slate-600 line-clamp-2 mb-3">
-                {sample.plainSummary[lang] || sample.plainSummary['en'] || sample.description}
+                {sample.description}
               </p>
               <div className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
-                <span>{t('viewExplanation')}</span>
+                <span>View Simplified Explanation</span>
               </div>
             </div>
           ))}
@@ -864,114 +731,53 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError, lang, t
 }
 
 {/* Official Results & Document View Screen */}
-function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang, setLang, t }: {
+function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
   caseId: string | null;
   sample: SampleOrder | null;
   apiData?: any | null;
   onReset: () => void;
   onOpenGlossary: () => void;
-  lang: SupportedLanguage;
-  setLang: (l: SupportedLanguage) => void;
-  t: (key: string) => string;
 }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [lang, setLang] = useState('en');
   const [viewMode, setViewMode] = useState<ViewMode>('summary');
   const [activeClauseId, setActiveClauseId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Clean state reset when target props or language change
+  // Clean state reset when target props change
   useEffect(() => {
     setActiveClauseId(null);
     setCopied(false);
+    setViewMode('summary');
 
     if (apiData) {
-      if (!apiData._originalWhatHappened) {
-        apiData._originalWhatHappened = apiData.whatHappened || apiData.plainSummary || "Court order summary processed.";
-      }
-      const baseSummary = apiData._originalWhatHappened;
-      const initialSummary = translateLegalText(baseSummary, lang);
-      
-      const translatedWhatYouNeedToDo = (apiData.whatYouNeedToDo || []).map((step: string) => translateLegalText(step, lang));
-      
-      const translatedClauses = (apiData.clauses || []).map((c: Clause) => ({
-        ...c,
-        plainText: translateLegalText(c.plainText, lang)
-      }));
-
-      let changedFromPrevious = apiData.changedFromPrevious;
-      if (changedFromPrevious?.changes) {
-        changedFromPrevious = {
-          ...changedFromPrevious,
-          changes: changedFromPrevious.changes.map((c: string) => translateLegalText(c, lang))
-        };
-      }
-
       setData({
-        plainSummary: initialSummary,
-        whatYouNeedToDo: translatedWhatYouNeedToDo,
+        plainSummary: apiData.whatHappened || apiData.plainSummary || "Court order summary processed.",
+        whatYouNeedToDo: apiData.whatYouNeedToDo || [],
         keyDates: apiData.keyDates || [],
-        whereThisStands: translateLegalText(apiData.whereThisStands || apiData.keyFacts?.stage || "", lang),
-        clauses: translatedClauses,
-        keyFacts: {
-          parties: (apiData.keyFacts?.parties || []).map((p: string) => translateLegalText(p, lang)),
-          nextHearingDate: apiData.keyFacts?.nextHearingDate || null,
-          stage: translateLegalText(apiData.keyFacts?.stage || "", lang),
-          courtName: translateLegalText(apiData.keyFacts?.courtName || "", lang),
-          caseTitle: translateLegalText(apiData.keyFacts?.caseTitle || "", lang)
-        },
+        whereThisStands: apiData.whereThisStands || "",
+        clauses: apiData.clauses || [],
+        keyFacts: apiData.keyFacts || { parties: [], nextHearingDate: null, stage: null },
         caseNumber: apiData.caseNumber,
         ecourtsLink: apiData.ecourtsLink || (apiData.caseNumber ? `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${apiData.caseNumber}` : 'https://services.ecourts.gov.in/ecourtindia_v6/'),
-        changedFromPrevious: changedFromPrevious,
         language: lang
       });
       setLoading(false);
-
-      // Dynamic Gemini fallback if not already localized by dictionary
-      if (lang !== 'en' && initialSummary === baseSummary) {
-        axios.post(`${API_BASE}/translate`, { text: baseSummary, targetLang: lang })
-          .then(res => {
-            if (res.data?.translatedText && res.data.translatedText !== baseSummary) {
-              setData((prev: any) => prev ? { ...prev, plainSummary: res.data.translatedText } : prev);
-            }
-          })
-          .catch(err => console.warn('Dynamic translation fallback error:', err));
-      }
-
       return;
     }
 
     if (sample) {
-      const summaryText = sample.plainSummary[lang] || translateLegalText(sample.plainSummary['en'] || sample.description || '', lang);
-      const rawClauses = sample.clauses[lang] || sample.clauses['en'] || [];
-      const clausesList = sample.clauses[lang] ? sample.clauses[lang] : rawClauses.map(c => ({
-        ...c,
-        plainText: translateLegalText(c.plainText, lang)
-      }));
-      const whatYouNeedToDo = (sample as any).whatYouNeedToDo ? 
-        (sample as any).whatYouNeedToDo.map((step: string) => translateLegalText(step, lang)) : [];
-
-      let changedFromPrevious = sample.changedFromPrevious;
-      if (changedFromPrevious?.changes) {
-        changedFromPrevious = {
-          ...changedFromPrevious,
-          changes: changedFromPrevious.changes.map(c => translateLegalText(c, lang))
-        };
-      }
-
+      const summaryText = sample.plainSummary[lang] || sample.plainSummary['en'];
+      const clausesList = sample.clauses[lang] || sample.clauses['en'] || sample.clauses.en;
       setData({
         plainSummary: summaryText,
         clauses: clausesList,
-        whatYouNeedToDo: whatYouNeedToDo,
-        keyFacts: {
-          ...sample.keyFacts,
-          courtName: translateLegalText(sample.keyFacts.courtName || '', lang),
-          stage: translateLegalText(sample.keyFacts.stage || '', lang),
-          parties: sample.keyFacts.parties?.map(p => translateLegalText(p, lang))
-        },
+        keyFacts: sample.keyFacts,
         caseNumber: sample.keyFacts.cnrNumber,
         ecourtsLink: `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${sample.keyFacts.cnrNumber}`,
-        changedFromPrevious: changedFromPrevious,
+        changedFromPrevious: sample.changedFromPrevious,
         language: lang
       });
       setLoading(false);
@@ -981,40 +787,43 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
     let isMounted = true;
     const fetchSummary = async () => {
       setLoading(true);
+      setFetchError(null);
       try {
         const res = await axios.get(`${API_BASE}/summary/${caseId}?lang=${lang}`);
         if (isMounted) {
-          const returned = res.data;
-          if (returned) {
-            const rawBase = returned.plainSummary || returned.whatHappened || '';
-            returned.plainSummary = translateLegalText(rawBase, lang);
-            if (returned.whatYouNeedToDo) {
-              returned.whatYouNeedToDo = returned.whatYouNeedToDo.map((s: string) => translateLegalText(s, lang));
+          const fetchedData = res.data;
+          
+          if (fetchedData.keyFacts?.caseTitle) {
+            setData(fetchedData);
+          } else {
+            let title = "Uploaded Document";
+            if (fetchedData.keyFacts?.parties && fetchedData.keyFacts.parties.length >= 2) {
+              title = fetchedData.keyFacts.parties.join(' vs ');
+            } else if (fetchedData.keyFacts?.parties && fetchedData.keyFacts.parties.length === 1) {
+              title = fetchedData.keyFacts.parties[0];
             }
-            if (returned.clauses) {
-              returned.clauses = returned.clauses.map((c: Clause) => ({
-                ...c,
-                plainText: translateLegalText(c.plainText, lang)
-              }));
-            }
-            if (returned.changedFromPrevious?.changes) {
-              returned.changedFromPrevious.changes = returned.changedFromPrevious.changes.map((c: string) => translateLegalText(c, lang));
-            }
+            const caseNum = fetchedData.caseNumber || fetchedData.keyFacts?.cnrNumber || null;
+            const link = caseNum ? `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${caseNum}` : null;
+            
+            setData({
+              plainSummary: fetchedData.plainSummary || "Court order summary processed.",
+              clauses: fetchedData.clauses || [],
+              keyFacts: {
+                ...fetchedData.keyFacts,
+                caseTitle: title,
+                cnrNumber: caseNum
+              },
+              caseNumber: caseNum,
+              ecourtsLink: link,
+              changedFromPrevious: fetchedData.changedFromPrevious || { changed: false, changes: [] },
+              language: lang
+            });
           }
-          setData(returned);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
         if (isMounted) {
-          const fallbackSample = SAMPLE_ORDERS[0];
-          setData({
-            plainSummary: fallbackSample.plainSummary[lang] || translateLegalText(fallbackSample.plainSummary['en'] || '', lang),
-            clauses: fallbackSample.clauses[lang] || fallbackSample.clauses['en'].map(c => ({ ...c, plainText: translateLegalText(c.plainText, lang) })),
-            keyFacts: fallbackSample.keyFacts,
-            changedFromPrevious: fallbackSample.changedFromPrevious,
-            language: lang,
-            fallback: true
-          });
+          setFetchError(err.response?.data?.error || "Failed to load document analysis.");
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -1035,9 +844,29 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
     window.print();
   };
 
-  if (loading || !data) {
+  if (loading && !fetchError && !data) {
     return <LoadingWidget />;
   }
+
+  if (fetchError) {
+    return (
+      <div className="govt-card p-8 text-center space-y-4 max-w-xl mx-auto mt-10">
+        <div className="mx-auto w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+          <AlertCircle size={32} />
+        </div>
+        <h3 className="text-xl font-bold font-serif text-slate-900">Analysis Failed</h3>
+        <p className="text-slate-600 text-sm">{fetchError}</p>
+        <button 
+          onClick={onReset}
+          className="mt-4 px-6 py-2 bg-blue-900 text-white text-sm font-bold rounded hover:bg-slate-900 transition-colors"
+        >
+          Return to Upload
+        </button>
+      </div>
+    );
+  }
+
+  if (!data) return null;
 
   const renderGlossaryText = (text: string) => {
     if (!text) return text;
@@ -1111,16 +940,16 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
           <AlertCircle size={22} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold text-xs uppercase tracking-wider text-amber-900 font-serif">
-              {t('disclaimerTitle')}
+              MANDATORY STATUTORY DISCLAIMER
             </h4>
             <p className="text-xs sm:text-sm font-semibold text-amber-950 leading-relaxed mt-0.5">
-              {t('disclaimerText')}
+              This is an automated plain-language summary, not legal advice. Please consult a lawyer or legal aid service for guidance on your case.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 bg-yellow-200 text-slate-950 text-xs font-extrabold px-3 py-1.5 rounded-full border border-amber-400 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
-          <span>{t('highlighterActive')}</span>
+          <span>Yellow Highlighter Active</span>
         </div>
       </div>
 
@@ -1132,12 +961,12 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
             className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
           >
             <ArrowLeft size={16} />
-            <span>{t('returnToSearch')}</span>
+            <span>Return</span>
           </button>
 
           <div>
             <h2 className="text-lg font-bold font-serif text-slate-900">
-              {data.keyFacts?.caseTitle || t('explanationTitle')}
+              {data.keyFacts?.caseTitle || "Court Order Explanation"}
             </h2>
             <p className="text-xs text-slate-500 font-mono">CNR: {data.caseNumber || data.keyFacts?.cnrNumber || 'Not Specified'}</p>
           </div>
@@ -1154,23 +983,24 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
             rel="noreferrer"
             className="px-3 py-1.5 rounded bg-blue-900 hover:bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
           >
-            <ExternalLink size={14} className="text-amber-400" />
+            <ExternalLink size={14} className="text-amber-400" aria-hidden="true" />
             <span>{t('viewOnECourts')}</span>
           </a>
 
           {/* Output Language Selector */}
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-bold text-slate-800 shadow-sm">
-            <span className="text-slate-500">{t('outputLangLabel')}</span>
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-bold text-slate-800">
+            <span className="text-slate-500">Output Language:</span>
             <select 
               value={lang}
-              onChange={(e) => setLang(e.target.value as SupportedLanguage)}
+              onChange={(e) => setLang(e.target.value)}
               className="bg-transparent focus:outline-none font-bold text-blue-900 cursor-pointer"
             >
-              {SUPPORTED_LANGUAGES.map((opt) => (
-                <option key={opt.code} value={opt.code}>
-                  {opt.nativeName} ({opt.name})
-                </option>
-              ))}
+              <option value="en">English</option>
+              <option value="hi">हिंदी (Hindi)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="te">తెలుగు (Telugu)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              <option value="bn">বাংলা (Bengali)</option>
             </select>
           </div>
 
@@ -1180,7 +1010,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
             className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
           >
             {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-            <span>{copied ? t('copiedBtn') : t('copyBtn')}</span>
+            <span>{copied ? 'Copied' : 'Copy Text'}</span>
           </button>
 
           {/* Print */}
@@ -1189,7 +1019,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
             className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
           >
             <Printer size={14} />
-            <span>{t('printBtn')}</span>
+            <span>Print Official Summary</span>
           </button>
         </div>
       </div>
@@ -1203,7 +1033,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
           }`}
         >
           <FileText size={16} />
-          {t('tabSummary')}
+          Plain-Language Order Explanation
         </button>
         <button
           onClick={() => setViewMode('split')}
@@ -1212,7 +1042,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
           }`}
         >
           <Columns size={16} />
-          {t('tabSplit')}
+          Side-by-Side Judicial Inspector
         </button>
         <button
           onClick={() => setViewMode('timeline')}
@@ -1221,7 +1051,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
           }`}
         >
           <Scale size={16} />
-          {t('tabTimeline')}
+          Hearing Schedule & Litigant Checklist
         </button>
       </div>
 
@@ -1235,7 +1065,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
                 <div className="govt-card-header flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-bold text-sm text-slate-900 font-serif flex items-center gap-2">
                     <FileText size={18} className="text-blue-900" />
-                    {t('explanationTitle')}
+                    Plain Language Explanation of Order
                   </h3>
                   <div className="flex items-center gap-3">
                     <a
@@ -1244,8 +1074,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
                       rel="noreferrer"
                       className="text-xs font-bold text-blue-900 hover:underline flex items-center gap-1"
                     >
-                      <ExternalLink size={12} />
-                      {t('viewOnECourts')} ↗
+                      <ExternalLink size={12} aria-hidden="true" />
+                      {t('viewOnECourts')}
                     </a>
                   </div>
                 </div>
@@ -1260,8 +1090,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
               {data.whatYouNeedToDo && data.whatYouNeedToDo.length > 0 && (
                 <div className="govt-card p-5 border-l-4 border-l-amber-500 bg-amber-50/50 space-y-3">
                   <h4 className="font-extrabold text-xs sm:text-sm font-serif text-slate-900 uppercase flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-yellow-300 text-slate-950 font-sans font-black rounded border border-amber-400">{t('keyActionsBadge')}</span>
-                    {t('whatYouNeedToDoTitle')}
+                    <span className="px-2 py-0.5 bg-yellow-300 text-slate-950 font-sans font-black rounded border border-amber-400">KEY ACTIONS</span>
+                    What You Need To Do (Procedural Steps):
                   </h4>
                   <ul className="space-y-2">
                     {data.whatYouNeedToDo.map((step: string, i: number) => (
@@ -1296,7 +1126,6 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
                 <div className="space-y-3">
                   <h3 className="font-bold text-sm font-serif text-slate-900 flex items-center gap-2">
                     <span>{t('clauseBreakdownTitle')}</span>
-                    <span className="text-[11px] font-sans font-bold text-slate-700 bg-yellow-200 px-2 py-0.5 rounded-full border border-amber-300">{t('highlightedBadge')}</span>
                   </h3>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
@@ -1311,7 +1140,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
                             <p className="font-semibold text-sm text-slate-900">
                               {renderGlossaryText(clause.plainText)}
                             </p>
-                            <span className="text-xs text-slate-500 mt-1 inline-block">{t('officialRecordCitation')} {clause.pageNumber}</span>
+                            <span className="text-xs text-slate-500 mt-1 inline-block">Official Record Citation: Page {clause.pageNumber}</span>
                           </div>
                         </div>
                         <ChevronRight size={16} className={`text-slate-400 transition-transform ${activeClauseId === clause.id ? 'rotate-90 text-blue-900' : ''}`} />
@@ -1327,14 +1156,32 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
                   ))}
                 </div>
               )}
+
+              {/* Legal Glossary Box */}
+              {data.legalGlossary && data.legalGlossary.length > 0 && (
+                <div className="p-5 rounded border border-blue-300 bg-blue-50/50 text-slate-900 space-y-3 shadow-sm mt-6">
+                  <h4 className="font-bold text-sm flex items-center gap-2 text-blue-950 font-serif uppercase tracking-wide">
+                    <BookOpen size={16} className="text-blue-700" aria-hidden="true" />
+                    Legal Glossary
+                  </h4>
+                  <dl className="space-y-2 text-xs">
+                    {data.legalGlossary.map((g: any, i: number) => (
+                      <div key={i} className="bg-white p-3 rounded border border-blue-200">
+                        <dt className="font-bold text-blue-900 capitalize mb-1">{g.term}</dt>
+                        <dd className="text-slate-700">{g.definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
             </>
           )}
 
           {viewMode === 'split' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm font-serif text-slate-900">{t('sideBySideTitle')}</h3>
-                <span className="text-xs text-slate-500">{t('sideBySideSub')}</span>
+                <h3 className="font-bold text-sm font-serif text-slate-900">Side-by-Side Document Source Comparison</h3>
+                <span className="text-xs text-slate-500">Click any row to focus matched clause text</span>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -1363,7 +1210,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
                         activeClauseId === clause.id ? 'border-amber-600 bg-amber-50 text-slate-900' : 'text-slate-700'
                       }`}
                     >
-                      <span className="block text-[10px] font-sans not-italic font-bold text-slate-500 mb-0.5">{t('officialRecordCitation')} {clause.pageNumber}</span>
+                      <span className="block text-[10px] font-sans not-italic font-bold text-slate-500 mb-0.5">Page {clause.pageNumber}</span>
                       "{clause.originalText}"
                     </div>
                   ))}
@@ -1374,8 +1221,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
 
           {viewMode === 'timeline' && (
             <div className="space-y-6">
-              <TimelineWidget keyFacts={data.keyFacts} darkMode={false} lang={lang} />
-              <ActionChecklist lang={lang} />
+              <TimelineWidget keyFacts={data.keyFacts} darkMode={false} />
+              <ActionChecklist />
             </div>
           )}
         </div>
@@ -1385,11 +1232,10 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
           <div className="govt-card">
             <div className="govt-card-header flex items-center justify-between">
               <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">{t('caseParticularsTitle')}</h3>
-              <span className="text-[10px] font-bold bg-yellow-200 text-slate-950 px-1.5 py-0.5 rounded border border-amber-300">{t('highlightedBadge')}</span>
             </div>
             <div className="p-4 space-y-3 text-xs">
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase">{t('partiesLabel')}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Parties</span>
                 <ul className="font-semibold text-slate-900 space-y-0.5 mt-0.5">
                   {data.keyFacts?.parties?.map((p: string, i: number) => (
                     <li key={i}>{p}</li>
@@ -1399,18 +1245,18 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
 
               <div>
                 <span className="block text-[10px] font-bold text-slate-500 uppercase">{t('courtBenchLabel')}</span>
-                <span className="font-semibold text-slate-900">{data.keyFacts?.courtName || 'District Court'}</span>
+                <span className="font-semibold text-slate-900">{data.keyFacts?.courtName || 'Not Specified'}</span>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{t('stageLabel')}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Stage</span>
                 <span className="font-extrabold text-slate-950 bg-yellow-200 px-2 py-1 rounded border-b-2 border-amber-400 inline-block">
                   {data.whereThisStands || data.keyFacts?.stage || 'Interim Stage'}
                 </span>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">{t('nextHearingDateLabel')}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Next Hearing Date</span>
                 <span className="font-black text-slate-950 bg-yellow-300 border-b-2 border-amber-500 px-2 py-1 rounded text-xs inline-block shadow-sm">
                   {data.keyFacts?.nextHearingDate || 'Not Specified'}
                 </span>
@@ -1418,21 +1264,6 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
             </div>
           </div>
 
-          <div className="govt-card p-4 space-y-2">
-            <h4 className="font-bold text-xs text-slate-900 uppercase flex items-center gap-1.5">
-              <BookOpen size={16} className="text-blue-900" />
-              {t('legalGlossarySearchTitle')}
-            </h4>
-            <p className="text-xs text-slate-600">
-              {t('legalGlossarySearchDesc')}
-            </p>
-            <button
-              onClick={onOpenGlossary}
-              className="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-800 transition-colors"
-            >
-              {t('openGlossaryPanelBtn')}
-            </button>
-          </div>
         </div>
       </div>
     </div>
