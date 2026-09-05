@@ -27,7 +27,8 @@ export default function TimelineWidget({ keyFacts, lang = 'en' }: Props) {
     ta: { institution: "வழக்கு தாக்கல்", review: "இணக்க மதிப்பாய்வு", disposal: "இறுதி தீர்வு", active: "செயலில்", done: "முடிந்தது", upcoming: "வரவிருக்கும்" },
     te: { institution: "కేసు దాఖలు", review: "వర్తింపు సమీక్ష", disposal: "తుది పరిష్కారం", active: "యాక్టివ్", done: "పూర్తయింది", upcoming: "రాబోయేది" },
     kn: { institution: "ಪ್ರಕರಣ ದಾಖಲಾತಿ", review: "ಅನುಸರಣೆ ಪರಿಶೀಲನೆ", disposal: "ಅಂತಿಮ ವಿಲೇವಾರಿ", active: "ಸಕ್ರಿಯ", done: "ಪೂರ್ಣಗೊಂಡಿದೆ", upcoming: "ಮುಂಬರುವ" },
-    bn: { institution: "মামলা দায়ের", review: "সম্মতি পর্যালোচনা", disposal: "চূড়ান্ত নিষ্পত্তি", active: "সক্রিয়", done: "সম্পন্ন", upcoming: "আসন্ন" }
+    bn: { institution: "মামলা দায়ের", review: "সম্মতি পর্যালোচনা", disposal: "চূড়ান্ত নিষ্পত্তি", active: "সক্রিয়", done: "সম্পন্ন", upcoming: "আসন্ন" },
+    ml: { institution: "കേസ് ഫയലിംഗ്", review: "ഉത്തരവ് പാലിക്കൽ പരിശോധന", disposal: "അന്തിമ വിധി", active: "നിലവിൽ", done: "പൂർത്തിയായി", upcoming: "അടുത്തത്" }
   };
 
   const currentTitles = milestoneTitles[lang] || milestoneTitles.en;

@@ -40,8 +40,17 @@ export default function VoicePlayer({ textToRead, lang = 'en' }: Props) {
     utterance.rate = rate;
 
     const voices = window.speechSynthesis.getVoices();
-    const targetLang = lang === 'hi' ? 'hi-IN' : lang === 'ta' ? 'ta-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
-    const voice = voices.find(v => v.lang.includes(targetLang) || v.lang.includes('en'));
+    const langMap: Record<string, string> = {
+      hi: 'hi-IN',
+      ta: 'ta-IN',
+      te: 'te-IN',
+      kn: 'kn-IN',
+      bn: 'bn-IN',
+      ml: 'ml-IN',
+      en: 'en-IN'
+    };
+    const targetLang = langMap[lang] || 'en-IN';
+    const voice = voices.find(v => v.lang.includes(targetLang) || v.lang.includes(lang) || v.lang.includes('en'));
     if (voice) utterance.voice = voice;
 
     utterance.onend = () => {

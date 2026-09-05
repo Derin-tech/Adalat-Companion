@@ -740,7 +740,10 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
     setCopied(false);
 
     if (apiData) {
-      const baseSummary = apiData.whatHappened || apiData.plainSummary || "Court order summary processed.";
+      if (!apiData._originalWhatHappened) {
+        apiData._originalWhatHappened = apiData.whatHappened || apiData.plainSummary || "Court order summary processed.";
+      }
+      const baseSummary = apiData._originalWhatHappened;
       const initialSummary = translateLegalText(baseSummary, lang);
       
       const translatedWhatYouNeedToDo = (apiData.whatYouNeedToDo || []).map((step: string) => translateLegalText(step, lang));
@@ -793,8 +796,12 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
     }
 
     if (sample) {
-      const summaryText = sample.plainSummary[lang] || sample.plainSummary['en'] || translateLegalText(sample.plainSummary['en'], lang);
-      const clausesList = sample.clauses[lang] || sample.clauses['en'] || [];
+      const summaryText = sample.plainSummary[lang] || translateLegalText(sample.plainSummary['en'] || sample.description || '', lang);
+      const rawClauses = sample.clauses[lang] || sample.clauses['en'] || [];
+      const clausesList = sample.clauses[lang] ? sample.clauses[lang] : rawClauses.map(c => ({
+        ...c,
+        plainText: translateLegalText(c.plainText, lang)
+      }));
       const whatYouNeedToDo = (sample as any).whatYouNeedToDo ? 
         (sample as any).whatYouNeedToDo.map((step: string) => translateLegalText(step, lang)) : [];
 
@@ -830,14 +837,33 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary, lang,
       setLoading(true);
       try {
         const res = await axios.get(`${API_BASE}/summary/${caseId}?lang=${lang}`);
-        if (isMounted) setData(res.data);
+        if (isMounted) {
+          const returned = res.data;
+          if (returned) {
+            const rawBase = returned.plainSummary || returned.whatHappened || '';
+            returned.plainSummary = translateLegalText(rawBase, lang);
+            if (returned.whatYouNeedToDo) {
+              returned.whatYouNeedToDo = returned.whatYouNeedToDo.map((s: string) => translateLegalText(s, lang));
+            }
+            if (returned.clauses) {
+              returned.clauses = returned.clauses.map((c: Clause) => ({
+                ...c,
+                plainText: translateLegalText(c.plainText, lang)
+              }));
+            }
+            if (returned.changedFromPrevious?.changes) {
+              returned.changedFromPrevious.changes = returned.changedFromPrevious.changes.map((c: string) => translateLegalText(c, lang));
+            }
+          }
+          setData(returned);
+        }
       } catch (err) {
         console.error(err);
         if (isMounted) {
           const fallbackSample = SAMPLE_ORDERS[0];
           setData({
-            plainSummary: fallbackSample.plainSummary[lang] || fallbackSample.plainSummary['en'] || translateLegalText(fallbackSample.plainSummary['en'], lang),
-            clauses: fallbackSample.clauses[lang] || fallbackSample.clauses['en'],
+            plainSummary: fallbackSample.plainSummary[lang] || translateLegalText(fallbackSample.plainSummary['en'] || '', lang),
+            clauses: fallbackSample.clauses[lang] || fallbackSample.clauses['en'].map(c => ({ ...c, plainText: translateLegalText(c.plainText, lang) })),
             keyFacts: fallbackSample.keyFacts,
             changedFromPrevious: fallbackSample.changedFromPrevious,
             language: lang,
