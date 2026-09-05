@@ -68,6 +68,114 @@ export const GLOSSARY_LIST: GlossaryTerm[] = [
     category: "Procedural",
     definition: "Taking judicial notice of an offence; when a court officially opens and accepts a case for trial.",
     example: "The Magistrate took cognizance of the charge sheet filed by police."
+  },
+  {
+    term: "anticipatory bail",
+    category: "Procedural",
+    definition: "A direction issued by a Sessions Court or High Court granting advance bail to a person expecting arrest in a non-bailable offence.",
+    example: "The applicant sought anticipatory bail fearing arrest under Section 498A."
+  },
+  {
+    term: "vakalatnama",
+    category: "Procedural",
+    definition: "A written authorization document signed by a litigant permitting an advocate to represent them in court proceedings.",
+    example: "Advocate Roy filed his vakalatnama on behalf of the petitioner."
+  },
+  {
+    term: "caveat",
+    category: "Procedural",
+    definition: "A formal notice filed in court asking that no order or decree be passed without giving prior hearing notice to the caveator.",
+    example: "The respondent filed a caveat to ensure they are heard before any ex-parte stay is granted."
+  },
+  {
+    term: "amicus curiae",
+    category: "Parties",
+    definition: "A 'friend of the court'—an independent lawyer appointed by the judge to assist the court on complex legal questions.",
+    example: "The High Court appointed a senior advocate as amicus curiae to examine environmental compliance."
+  },
+  {
+    term: "locus standi",
+    category: "Procedural",
+    definition: "The legal right of a party to bring a case or demonstrate sufficient connection to the matter before court.",
+    example: "The court questioned whether the petitioner had locus standi to challenge the tender process."
+  },
+  {
+    term: "adjournment sine die",
+    category: "Order Type",
+    definition: "Postponement of a court hearing indefinitely without fixing a specific future date.",
+    example: "The hearing was adjourned sine die awaiting the Supreme Court verdict."
+  },
+  {
+    term: "mesne profits",
+    category: "Financial",
+    definition: "Profits or rent earned by a person in wrongful possession of a property, which must be paid back to the rightful owner.",
+    example: "The tenant holding over after lease expiry was directed to pay ₹15,000 monthly as mesne profits."
+  },
+  {
+    term: "garnishee order",
+    category: "Financial",
+    definition: "A court order directing a third party (like a bank holding money for a debtor) to pay that money directly to a creditor.",
+    example: "The creditor obtained a garnishee order attaching the debtor's savings account."
+  },
+  {
+    term: "alimony / permanent alimony",
+    category: "Financial",
+    definition: "A lump-sum or ongoing financial allowance ordered by a court to be paid by one spouse to another after divorce.",
+    example: "The court decreed permanent alimony of ₹15 Lakhs payable within 3 months."
+  },
+  {
+    term: "res judicata",
+    category: "Procedural",
+    definition: "A legal principle preventing the same issue between the same parties from being re-litigated once decided by a competent court.",
+    example: "The suit was dismissed as barred by res judicata since the dispute was already decided in 2022."
+  },
+  {
+    term: "suo motu",
+    category: "Procedural",
+    definition: "An action taken by a court on its own authority without waiting for a formal application from any party.",
+    example: "The High Court took suo motu cognizance of the hospital fire incident."
+  },
+  {
+    term: "writ petition",
+    category: "Order Type",
+    definition: "A formal application filed before a High Court or the Supreme Court seeking enforcement of fundamental or statutory rights.",
+    example: "Filed a writ of Habeas Corpus to produce the missing person."
+  },
+  {
+    term: "quashing",
+    category: "Order Type",
+    definition: "An order by a High Court setting aside or cancelling an FIR, criminal proceeding, or lower court order.",
+    example: "The High Court allowed the petition and quashed the criminal proceedings based on a compromise settlement."
+  },
+  {
+    term: "interlocutory order",
+    category: "Order Type",
+    definition: "A temporary or provisional order passed during the pendency of a case before final disposal.",
+    example: "The interlocutory order granted temporary custody of minor children during summer vacation."
+  },
+  {
+    term: "power of attorney",
+    category: "Parties",
+    definition: "A legal authorization giving a trusted person power to act on another's behalf in legal and financial matters.",
+    example: "The NRI owner appeared in court through his registered Power of Attorney holder."
+  },
+  {
+    term: "appellant",
+    category: "Parties",
+    definition: "The party appealing a lower court decision to a higher appellate court seeking to overturn or modify the judgment.",
+    example: "The appellant filed an appeal against the trial court conviction."
+  },
+  {
+    term: "charge sheet / final report",
+    category: "Procedural",
+    definition: "The official report submitted by investigating police officers to the Magistrate stating sufficient evidence exists for trial.",
+    example: "Police submitted a 200-page charge sheet under IPC sections 420 and 406."
+  },
+  {
+    term: "compromise deed / settlement terms",
+    category: "Order Type",
+    definition: "A formal written agreement between opposing parties settling their court dispute amicably.",
+    example: "The suit was disposed of in terms of the compromise deed signed by both parties."
   }
 ];
 
