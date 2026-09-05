@@ -29,6 +29,7 @@ export default function App() {
     setCaseId(null);
     setSelectedSample(null);
     setApiData(null);
+    setError(null);
   };
 
   const getFontSizeClass = () => {
@@ -126,18 +127,14 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
-          <div className="mb-6 p-4 rounded-md bg-rose-50 border-l-4 border-rose-600 text-rose-900 flex items-start gap-3">
-            <AlertCircle size={20} className="text-rose-600 shrink-0 mt-0.5" />
-            <p className="text-sm font-medium">{error}</p>
+          <div className="mb-6 p-4 rounded-md bg-amber-50 border-l-4 border-amber-600 text-amber-950 flex items-start gap-3 shadow-sm">
+            <AlertCircle size={20} className="text-amber-700 shrink-0 mt-0.5" />
+            <p className="text-sm font-semibold">{error}</p>
           </div>
         )}
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center govt-card p-12">
-            <div className="w-12 h-12 border-4 border-blue-900/20 border-t-blue-900 rounded-full animate-spin mb-4"></div>
-            <h3 className="text-lg font-bold font-serif mb-1 text-slate-900">Processing Court Order Text...</h3>
-            <p className="text-xs text-slate-600">Extracting legal text clauses, cross-verifying citations, and mapping plain-language terms.</p>
-          </div>
+          <LoadingWidget />
         ) : !caseId && !selectedSample && !apiData ? (
           <UploadScreen 
             onSuccess={(id, data) => {
@@ -206,6 +203,37 @@ export default function App() {
   );
 }
 
+{/* Animated Loading State Component */}
+function LoadingWidget() {
+  const [step, setStep] = useState(0);
+  const steps = [
+    "Reading court order text & extracting clauses...",
+    "Connecting to Gemini 3.6 Flash legal translation model...",
+    "Generating plain-language summary & identifying statutory terms...",
+    "Validating CNR & constructing eCourts verification link..."
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStep((prev) => (prev + 1) % steps.length);
+    }, 1200);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center govt-card p-12 space-y-4">
+      <div className="relative w-16 h-16 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full border-4 border-blue-900/20 border-t-blue-900 animate-spin"></div>
+        <Scale size={28} className="text-blue-900 animate-pulse" />
+      </div>
+      <h3 className="text-lg font-bold font-serif text-slate-900">Generating Plain-Language Explanation...</h3>
+      <p className="text-xs font-semibold text-blue-900 bg-blue-50 px-4 py-1.5 rounded border border-blue-200">
+        {steps[step]}
+      </p>
+    </div>
+  );
+}
+
 {/* Official Portal Upload & Search Screen */}
 function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: { 
   onSuccess: (id: string, responseData?: any) => void;
@@ -245,8 +273,9 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
       });
       onSuccess('explain-result', res.data);
     } catch (err: any) {
-      console.error(err);
-      // Fallback to static sample if API fails
+      console.error('Live API call error:', err);
+      // Friendly user fallback notification
+      setError('Notice: Live AI service encountered a temporary connection delay. Displaying a pre-verified offline plain-language explanation.');
       const matched = SAMPLE_ORDERS.find(s => s.id === selectedSampleId) || SAMPLE_ORDERS[0];
       onSelectSample(matched);
     } finally {
@@ -255,6 +284,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
   };
 
   const handleExplainOffline = () => {
+    setError(null);
     const matched = SAMPLE_ORDERS.find(s => s.id === selectedSampleId) || SAMPLE_ORDERS[0];
     onSelectSample(matched);
   };
@@ -269,7 +299,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
       onSuccess(res.data.caseId);
     } catch (err: any) {
       console.error(err);
-      setError('Loaded fallback sample document.');
+      setError('Notice: Document upload service offline. Loaded fallback reference order.');
       onSelectSample(SAMPLE_ORDERS[0]);
     } finally {
       setLoading(false);
@@ -286,6 +316,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
       onSuccess(`case-cnr-${cnr}`);
     } catch (err: any) {
       console.error(err);
+      setError('Notice: eCourts API lookup offline. Displaying reference order.');
       onSelectSample(SAMPLE_ORDERS[0]);
     } finally {
       setLoading(false);
@@ -523,7 +554,12 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
   const [activeClauseId, setActiveClauseId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Clean state reset when target props change
   useEffect(() => {
+    setActiveClauseId(null);
+    setCopied(false);
+    setViewMode('summary');
+
     if (apiData) {
       setData({
         plainSummary: apiData.whatHappened || apiData.plainSummary || "Court order summary processed.",
@@ -581,7 +617,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
     };
     fetchSummary();
     return () => { isMounted = false; };
-  }, [caseId, sample, lang]);
+  }, [caseId, sample, apiData, lang]);
 
   const handleCopySummary = () => {
     if (!data?.plainSummary) return;
@@ -595,11 +631,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
   };
 
   if (loading || !data) {
-    return (
-      <div className="flex justify-center py-20">
-        <div className="w-8 h-8 border-4 border-blue-900/20 border-t-blue-900 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <LoadingWidget />;
   }
 
   const renderGlossaryText = (text: string) => {
@@ -628,6 +660,21 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
   return (
     <div className="space-y-6">
+      {/* MANDATORY STATUTORY DISCLAIMER BANNER (PERMANENT & NON-DISMISSIBLE) */}
+      <div className="bg-amber-50 border-l-4 border-amber-600 p-4 rounded-r shadow-sm border border-slate-200 font-sans">
+        <div className="flex items-start gap-3">
+          <AlertCircle size={22} className="text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-xs uppercase tracking-wider text-amber-900 font-serif">
+              MANDATORY STATUTORY DISCLAIMER
+            </h4>
+            <p className="text-xs sm:text-sm font-semibold text-amber-950 leading-relaxed mt-0.5">
+              This is an automated plain-language summary, not legal advice. Please consult a lawyer or legal aid service for guidance on your case.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Top Action Controls */}
       <div className="govt-card p-4 flex flex-wrap items-center justify-between gap-4 no-print">
         <div className="flex items-center gap-3">
@@ -643,7 +690,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
             <h2 className="text-lg font-bold font-serif text-slate-900">
               {data.keyFacts?.caseTitle || "Court Order Explanation"}
             </h2>
-            <p className="text-xs text-slate-500 font-mono">CNR: {data.keyFacts?.cnrNumber || 'MHBO010001232026'}</p>
+            <p className="text-xs text-slate-500 font-mono">CNR: {data.caseNumber || data.keyFacts?.cnrNumber || 'Not Specified'}</p>
           </div>
         </div>
 
@@ -761,10 +808,24 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                 </div>
               </div>
 
+              {/* What You Need To Do Section if provided */}
+              {data.whatYouNeedToDo && data.whatYouNeedToDo.length > 0 && (
+                <div className="govt-card p-5 border-l-4 border-l-blue-900 space-y-2">
+                  <h4 className="font-bold text-sm font-serif text-blue-950 uppercase">
+                    What You Need To Do (Procedural Steps):
+                  </h4>
+                  <ul className="list-disc pl-5 space-y-1 text-xs font-semibold text-slate-800">
+                    {data.whatYouNeedToDo.map((step: string, i: number) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* What Changed Box */}
               {data.changedFromPrevious?.changed && (
                 <div className="p-5 rounded border border-amber-300 bg-amber-50 text-amber-950 space-y-2">
-                  <h4 className="font-bold text-sm flex items-center gap-2 text-amber-900">
+                  <h4 className="font-bold text-sm flex items-center gap-2 text-amber-900 font-serif">
                     Key Updates from Previous Hearing Order:
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-xs font-semibold">
@@ -776,36 +837,38 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               )}
 
               {/* Clause breakdown */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-sm font-serif text-slate-900">Detailed Clause Breakdown & Source Verification</h3>
-                {data.clauses?.map((clause: Clause) => (
-                  <div 
-                    key={clause.id}
-                    className="govt-card p-4 cursor-pointer hover:border-blue-900 transition-colors"
-                    onClick={() => setActiveClauseId(activeClauseId === clause.id ? null : clause.id)}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-sm text-slate-900">
-                            {renderGlossaryText(clause.plainText)}
-                          </p>
-                          <span className="text-xs text-slate-500 mt-1 inline-block">Official Record Citation: Page {clause.pageNumber}</span>
+              {data.clauses && data.clauses.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-bold text-sm font-serif text-slate-900">Detailed Clause Breakdown & Source Verification</h3>
+                  {data.clauses?.map((clause: Clause) => (
+                    <div 
+                      key={clause.id}
+                      className="govt-card p-4 cursor-pointer hover:border-blue-900 transition-colors"
+                      onClick={() => setActiveClauseId(activeClauseId === clause.id ? null : clause.id)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-semibold text-sm text-slate-900">
+                              {renderGlossaryText(clause.plainText)}
+                            </p>
+                            <span className="text-xs text-slate-500 mt-1 inline-block">Official Record Citation: Page {clause.pageNumber}</span>
+                          </div>
                         </div>
+                        <ChevronRight size={16} className={`text-slate-400 transition-transform ${activeClauseId === clause.id ? 'rotate-90 text-blue-900' : ''}`} />
                       </div>
-                      <ChevronRight size={16} className={`text-slate-400 transition-transform ${activeClauseId === clause.id ? 'rotate-90 text-blue-900' : ''}`} />
-                    </div>
 
-                    {activeClauseId === clause.id && (
-                      <div className="mt-3 p-3 rounded bg-slate-100 border border-slate-300 text-xs font-serif italic text-slate-800">
-                        <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">Original Legal Order Text:</span>
-                        "{clause.originalText}"
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {activeClauseId === clause.id && (
+                        <div className="mt-3 p-3 rounded bg-slate-100 border border-slate-300 text-xs font-serif italic text-slate-800">
+                          <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">Original Legal Order Text:</span>
+                          "{clause.originalText}"
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -877,12 +940,12 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
               <div>
                 <span className="block text-[10px] font-bold text-slate-500 uppercase">Court & Bench</span>
-                <span className="font-semibold text-slate-900">{data.keyFacts?.courtName || 'Family Court'}</span>
+                <span className="font-semibold text-slate-900">{data.keyFacts?.courtName || 'District Court'}</span>
               </div>
 
               <div>
                 <span className="block text-[10px] font-bold text-slate-500 uppercase">Stage</span>
-                <span className="font-semibold text-blue-900">{data.keyFacts?.stage || 'Interim Order'}</span>
+                <span className="font-semibold text-blue-900">{data.whereThisStands || data.keyFacts?.stage || 'Interim Stage'}</span>
               </div>
 
               <div>
