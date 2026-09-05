@@ -21,9 +21,10 @@ export interface SampleOrder {
   title: string;
   badge: string;
   description: string;
+  rawOrderText: string;
+  keyFacts: KeyFacts;
   plainSummary: Record<string, string>; // lang key -> text
   clauses: Record<string, Clause[]>;     // lang key -> clauses
-  keyFacts: KeyFacts;
   changedFromPrevious?: {
     changed: boolean;
     changes: string[];
@@ -36,6 +37,7 @@ export const SAMPLE_ORDERS: SampleOrder[] = [
     title: "Interim Maintenance Order",
     badge: "Family Court",
     description: "Order directing monthly maintenance payment during divorce proceedings.",
+    rawOrderText: "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner on or before the 5th day of every calendar month, commencing from 01.01.2026. Matter stands adjourned to 15.03.2026 for compliance.",
     keyFacts: {
       caseTitle: "Anita Sharma vs. Rahul Sharma",
       cnrNumber: "MHBO010001232026",
@@ -78,22 +80,56 @@ export const SAMPLE_ORDERS: SampleOrder[] = [
         },
         {
           id: "c3",
-          originalText: "In default of payment, the Petitioner is at liberty to file execution proceedings for attachment of Respondent's salary.",
-          plainText: "If payment is missed, the wife can ask the court to deduct the money directly from the husband's salary.",
+          originalText: "Matter stands adjourned to 15.03.2026 for compliance.",
+          plainText: "The next hearing is fixed for March 15, 2026 to check if payments were made.",
           pageNumber: 2
         }
-      ],
-      hi: [
+      ]
+    }
+  },
+  {
+    id: "sample-adjournment",
+    title: "Adjournment Order",
+    badge: "District Court",
+    description: "Order postponing hearing due to counsel absence and fixing next trial date.",
+    rawOrderText: "At the request of learned counsel for the Respondent, who submits that senior counsel is unavailable today due to medical indisposition, the matter stands adjourned to 28.04.2026 for cross-examination of PW-1. Interim order, if any, to continue till the next date of hearing.",
+    keyFacts: {
+      caseTitle: "Sunil Kumar vs. Vikas Mehta",
+      cnrNumber: "DLCT010043212026",
+      courtName: "District Civil Court, Tis Hazari, Delhi",
+      judgeName: "Hon'ble Judge A. K. Gupta",
+      parties: ["Sunil Kumar (Plaintiff)", "Vikas Mehta (Defendant)"],
+      nextHearingDate: "2026-04-28",
+      stage: "Adjournment / Cross Examination",
+      orderDate: "2026-01-20"
+    },
+    changedFromPrevious: {
+      changed: true,
+      changes: [
+        "Hearing postponed to April 28, 2026 at respondent's request.",
+        "Existing interim protection orders extended until the next hearing date."
+      ]
+    },
+    plainSummary: {
+      en: "The court has postponed today's hearing because the respondent's senior lawyer was unwell and could not attend. The case will next be heard on April 28, 2026 for questioning the main witness (PW-1). Any temporary stay or protection orders issued earlier remain active until that date.",
+      hi: "अदालत ने आज की सुनवाई स्थगित कर दी है क्योंकि प्रतिवादी के वकील अस्वस्थता के कारण उपस्थित नहीं हो सके। मामले की अगली सुनवाई 28 अप्रैल 2026 को मुख्य गवाह से पूछताछ के लिए होगी। पहले जारी किए गए सभी अंतरिम आदेश तब तक लागू रहेंगे।",
+      ta: "எதிர்தரப்பு வழக்கறிஞர் உடல்நலக் குறைவால் வர முடியாததால் வழக்கு ஏப்ரல் 28, 2026 ஆம் தேதிக்கு ஒத்திவைக்கப்பட்டுள்ளது.",
+      te: "ప్రతివాది తరఫు న్యాయవాది అనారోగ్యం కారణంగా నేటి విచారణను ఏప్రిల్ 28, 2026కి వాయిదా వేశారు.",
+      kn: "ವಕೀಲರ ಅನಾರೋಗ್ಯದ ಕಾರಣ ಇಂದಿನ ವಿಚಾರಣೆಯನ್ನು ಏಪ್ರಿಲ್ 28, 2026ಕ್ಕೆ ಮುಂದೂಡಲಾಗಿದೆ.",
+      bn: "আইনজীবীর অসুস্থতার কারণে আজকের শুনানি ২৮ এপ্রিল ২০২৬ পর্যন্ত মুলতবি করা হয়েছে।"
+    },
+    clauses: {
+      en: [
         {
-          id: "c1",
-          originalText: "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner.",
-          plainText: "पति (प्रतिवादी) को दैनिक खर्चों के लिए हर महीने ₹10,000 देने होंगे।",
+          id: "a1",
+          originalText: "At the request of learned counsel for the Respondent, who submits that senior counsel is unavailable today due to medical indisposition, the matter stands adjourned to 28.04.2026.",
+          plainText: "Today's court hearing was postponed to April 28, 2026 because the respondent's lawyer was sick.",
           pageNumber: 1
         },
         {
-          id: "c2",
-          originalText: "Said remittance shall be made directly into the bank account of the Petitioner on or before the 5th day of every calendar month, commencing from 01.01.2026.",
-          plainText: "यह पैसा 1 जनवरी 2026 से हर महीने की 5 तारीख तक पत्नी के बैंक खाते में जमा होना चाहिए।",
+          id: "a2",
+          originalText: "Interim order, if any, to continue till the next date of hearing.",
+          plainText: "All temporary court protections or stay orders given previously will stay in force until the next hearing.",
           pageNumber: 1
         }
       ]
@@ -104,6 +140,7 @@ export const SAMPLE_ORDERS: SampleOrder[] = [
     title: "Bail Order with Conditions",
     badge: "Sessions Court",
     description: "Order granting conditional bail to the accused upon furnishing personal bond.",
+    rawOrderText: "Applicant shall be released on bail upon executing a personal bond of ₹25,000/- with one solvent surety of like amount. Applicant shall surrender his passport before the Investigating Officer within 48 hours of release and mark attendance at police station every Monday between 10:00 AM and 01:00 PM.",
     keyFacts: {
       caseTitle: "State of Maharashtra vs. Rajesh Verma",
       cnrNumber: "MHCC020045672025",
@@ -148,50 +185,6 @@ export const SAMPLE_ORDERS: SampleOrder[] = [
           id: "b3",
           originalText: "Applicant shall mark his attendance at police station every Monday between 10:00 AM and 01:00 PM.",
           plainText: "He must visit the local police station every Monday morning to sign the attendance register.",
-          pageNumber: 2
-        }
-      ]
-    }
-  },
-  {
-    id: "sample-property",
-    title: "Property Stay Order (Temporary Injunction)",
-    badge: "Civil Court",
-    description: "Order restraining respondent from selling or altering property status pending trial.",
-    keyFacts: {
-      caseTitle: "Ramesh Patel vs. Suresh Patel",
-      cnrNumber: "GJAH010098762025",
-      courtName: "Civil Court Senior Division, Ahmedabad",
-      judgeName: "Hon'ble Judge M. P. Mehta",
-      parties: ["Ramesh Patel (Plaintiff)", "Suresh Patel (Defendant)"],
-      nextHearingDate: "2026-04-05",
-      stage: "Written Statement Reply",
-      orderDate: "2026-01-22"
-    },
-    changedFromPrevious: {
-      changed: false,
-      changes: []
-    },
-    plainSummary: {
-      en: "The court has issued a temporary stay order protecting the disputed land (Survey No. 104). The defendant (Suresh Patel) is forbidden from selling, gifting, constructing on, or transferring ownership of the property until the court gives a final decision. Both parties must maintain the current status of the land.",
-      hi: "अदालत ने विवादित जमीन (सर्वे नंबर 104) पर अंतरिम रोक (स्टे ऑर्डर) जारी की है। जब तक मामला जारी है, प्रतिवादी (सुरेश पटेल) जमीन को बेचने, निर्माण करने या किसी और को हस्तांतरित करने से प्रतिबंधित है।",
-      ta: "சர்ச்சைக்குரிய நிலத்தை (சர்வே எண் 104) விற்கவோ மாற்றவோ பிரதிவாதிக்கு தற்காலிக தடை விதிக்கப்பட்டுள்ளது.",
-      te: "వివాదాస్పద స్థలాన్ని అమ్మడం లేదా నిర్మించడం చేయకూడదని ప్రతివాదిని కోర్టు తాత్కాలికంగా ఆదేశించింది.",
-      kn: "ವಿವಾದಿತ ಜಾಗವನ್ನು ಮಾರಾಟ ಮಾಡದಂತೆ ಅಥವಾ ಬದಲಾಯಿಸದಂತೆ ಕೋರ್ಟ್ ತಡೆಯಾಜ್ಞೆ ನೀಡಿದೆ.",
-      bn: "বিতর্কিত জমি বিক্রি বা হস্তান্তর না করার জন্য আদালত অন্তর্বর্তীকালীন স্থগিতাদেশ জারি করেছে।"
-    },
-    clauses: {
-      en: [
-        {
-          id: "p1",
-          originalText: "The Defendant is temporarily restrained from alienating, encumbering, or creating third-party rights in respect of the suit property.",
-          plainText: "The defendant cannot sell, mortgage, or give the property to anyone else while the case is in court.",
-          pageNumber: 1
-        },
-        {
-          id: "p2",
-          originalText: "Status quo as on date shall be strictly maintained by both parties until further orders.",
-          plainText: "Both sides must keep the property exactly as it is right now without making any physical or legal changes.",
           pageNumber: 2
         }
       ]

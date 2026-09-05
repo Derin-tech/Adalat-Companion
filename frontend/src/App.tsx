@@ -19,10 +19,17 @@ type ViewMode = 'summary' | 'split' | 'timeline';
 export default function App() {
   const [caseId, setCaseId] = useState<string | null>(null);
   const [selectedSample, setSelectedSample] = useState<SampleOrder | null>(null);
+  const [apiData, setApiData] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+
+  const handleReset = () => {
+    setCaseId(null);
+    setSelectedSample(null);
+    setApiData(null);
+  };
 
   const getFontSizeClass = () => {
     if (fontSize === 'large') return 'text-base sm:text-lg';
@@ -72,7 +79,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
           <div 
             className="flex items-center gap-4 cursor-pointer" 
-            onClick={() => { setCaseId(null); setSelectedSample(null); }}
+            onClick={handleReset}
           >
             <div className="w-12 h-12 rounded-lg bg-white p-2 border-2 border-amber-500 flex items-center justify-center text-slate-900 shadow">
               <Landmark size={28} className="text-blue-900" />
@@ -101,7 +108,7 @@ export default function App() {
         {/* Sub-header Navigation Bar */}
         <div className="bg-slate-900/90 border-t border-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 no-print">
           <div className="max-w-7xl mx-auto flex items-center gap-6">
-            <span className={`cursor-pointer ${!caseId && !selectedSample ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} onClick={() => { setCaseId(null); setSelectedSample(null); }}>
+            <span className={`cursor-pointer ${!caseId && !selectedSample && !apiData ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} onClick={handleReset}>
               Order Explainer
             </span>
             <span>•</span>
@@ -128,13 +135,19 @@ export default function App() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-center govt-card p-12">
             <div className="w-12 h-12 border-4 border-blue-900/20 border-t-blue-900 rounded-full animate-spin mb-4"></div>
-            <h3 className="text-lg font-bold font-serif mb-1 text-slate-900">Processing Court Order File...</h3>
+            <h3 className="text-lg font-bold font-serif mb-1 text-slate-900">Processing Court Order Text...</h3>
             <p className="text-xs text-slate-600">Extracting legal text clauses, cross-verifying citations, and mapping plain-language terms.</p>
           </div>
-        ) : !caseId && !selectedSample ? (
+        ) : !caseId && !selectedSample && !apiData ? (
           <UploadScreen 
-            onSuccess={(id) => setCaseId(id)} 
-            onSelectSample={(sample) => setSelectedSample(sample)}
+            onSuccess={(id, data) => {
+              setCaseId(id);
+              if (data) setApiData(data);
+            }} 
+            onSelectSample={(sample) => {
+              setSelectedSample(sample);
+              setApiData(null);
+            }}
             setLoading={setLoading} 
             setError={setError} 
           />
@@ -142,7 +155,8 @@ export default function App() {
           <ResultsScreen 
             caseId={caseId}
             sample={selectedSample}
-            onReset={() => { setCaseId(null); setSelectedSample(null); }}
+            apiData={apiData}
+            onReset={handleReset}
             onOpenGlossary={() => setIsGlossaryOpen(true)}
           />
         )}
@@ -194,14 +208,56 @@ export default function App() {
 
 {/* Official Portal Upload & Search Screen */}
 function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: { 
-  onSuccess: (id: string) => void;
+  onSuccess: (id: string, responseData?: any) => void;
   onSelectSample: (sample: SampleOrder) => void;
   setLoading: (l: boolean) => void;
   setError: (e: string | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cnr, setCnr] = useState('');
-  const [activeTab, setActiveTab] = useState<'upload' | 'cnr'>('upload');
+  const [orderText, setOrderText] = useState('');
+  const [selectedSampleId, setSelectedSampleId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'upload' | 'text' | 'cnr'>('upload');
+
+  const handleDropdownSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const sampleId = e.target.value;
+    setSelectedSampleId(sampleId);
+    if (!sampleId) return;
+
+    const sample = SAMPLE_ORDERS.find(s => s.id === sampleId);
+    if (sample) {
+      setOrderText(sample.rawOrderText || '');
+      setCnr(sample.keyFacts.cnrNumber || '');
+      setActiveTab('text');
+    }
+  };
+
+  const handleExplainTextApi = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!orderText.trim()) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.post(`${API_BASE}/explain`, {
+        orderText: orderText.trim(),
+        caseNumber: cnr.trim() || undefined
+      });
+      onSuccess('explain-result', res.data);
+    } catch (err: any) {
+      console.error(err);
+      // Fallback to static sample if API fails
+      const matched = SAMPLE_ORDERS.find(s => s.id === selectedSampleId) || SAMPLE_ORDERS[0];
+      onSelectSample(matched);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExplainOffline = () => {
+    const matched = SAMPLE_ORDERS.find(s => s.id === selectedSampleId) || SAMPLE_ORDERS[0];
+    onSelectSample(matched);
+  };
 
   const handleFileUpload = async (file: File) => {
     setLoading(true);
@@ -248,7 +304,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
             Plain-Language Court Order Reading Portal
           </h2>
           <p className="text-xs text-blue-100 mt-1 max-w-2xl">
-            Upload your court order copy or enter your 16-digit CNR number to get an accurate clause-by-clause explanation, source reference links, and statutory glossary terms.
+            Upload your court order copy, paste order text, or enter your 16-digit CNR number to get an accurate clause-by-clause explanation and eCourts link.
           </p>
         </div>
         <div className="bg-blue-950 p-3 rounded border border-blue-800 text-center shrink-0">
@@ -260,7 +316,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
 
       {/* Main Upload / Search Form Card */}
       <div className="govt-card">
-        <div className="govt-card-header flex items-center justify-between">
+        <div className="govt-card-header flex flex-wrap items-center justify-between gap-4">
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('upload')}
@@ -268,7 +324,15 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                 activeTab === 'upload' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              Option 1: Upload Court Order Copy (PDF)
+              Upload PDF
+            </button>
+            <button
+              onClick={() => setActiveTab('text')}
+              className={`pb-1 font-bold text-sm border-b-2 transition-colors ${
+                activeTab === 'text' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Paste Order Text
             </button>
             <button
               onClick={() => setActiveTab('cnr')}
@@ -276,13 +340,30 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                 activeTab === 'cnr' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              Option 2: 16-Digit CNR Number Lookup
+              16-Digit CNR Lookup
             </button>
+          </div>
+
+          {/* Try an Example Dropdown */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-600">Try an Example:</span>
+            <select
+              value={selectedSampleId}
+              onChange={handleDropdownSelect}
+              className="px-3 py-1.5 text-xs font-bold rounded border border-blue-900 bg-blue-50 text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-900 cursor-pointer shadow-sm"
+            >
+              <option value="">-- Select Preloaded Sample Order --</option>
+              {SAMPLE_ORDERS.map((sample) => (
+                <option key={sample.id} value={sample.id}>
+                  {sample.title} ({sample.badge})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="p-6">
-          {activeTab === 'upload' ? (
+          {activeTab === 'upload' && (
             <div 
               className="border-2 border-dashed border-slate-300 rounded-md p-10 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
               onDragOver={(e) => e.preventDefault()}
@@ -311,7 +392,58 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                 onChange={(e) => e.target.files && e.target.files[0] && handleFileUpload(e.target.files[0])}
               />
             </div>
-          ) : (
+          )}
+
+          {activeTab === 'text' && (
+            <form onSubmit={handleExplainTextApi} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  16-Digit CNR Number (Optional for eCourts Link)
+                </label>
+                <input 
+                  type="text" 
+                  value={cnr}
+                  onChange={(e) => setCnr(e.target.value)}
+                  placeholder="e.g. MHBO010001232026"
+                  className="w-full px-4 py-2 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Court Order Text
+                </label>
+                <textarea 
+                  rows={5}
+                  value={orderText}
+                  onChange={(e) => setOrderText(e.target.value)}
+                  placeholder="Paste legal court order text here..."
+                  className="w-full px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-serif leading-relaxed"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button 
+                  type="submit"
+                  disabled={!orderText.trim()}
+                  className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors shadow-sm"
+                >
+                  Explain Order (Live API Call)
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={handleExplainOffline}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs rounded transition-colors"
+                  title="Uses preloaded offline JSON demo without calling API"
+                >
+                  Explain Order (Offline Demo Mode)
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === 'cnr' && (
             <form onSubmit={handleCnrSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Enter 16-Digit CNR Number</label>
@@ -321,7 +453,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
                     value={cnr}
                     onChange={(e) => setCnr(e.target.value)}
                     placeholder="e.g. MHBO010001232026"
-                    className="flex-1 px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900"
+                    className="flex-1 px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
                   />
                   <button 
                     type="submit"
@@ -341,9 +473,9 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-base font-serif text-slate-900 flex items-center gap-2">
             <Scale size={18} className="text-blue-900" />
-            Official Reference Orders (Instant Preview)
+            Official Reference Orders (Preloaded Pitch Demos)
           </h3>
-          <span className="text-xs text-slate-500">Select a pre-verified sample case order to test portal features</span>
+          <span className="text-xs text-slate-500">Select any sample to view offline plain-language explanation</span>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
@@ -377,9 +509,10 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
 }
 
 {/* Official Results & Document View Screen */}
-function ResultsScreen({ caseId, sample, onReset, onOpenGlossary }: {
+function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
   caseId: string | null;
   sample: SampleOrder | null;
+  apiData?: any | null;
   onReset: () => void;
   onOpenGlossary: () => void;
 }) {
@@ -391,6 +524,22 @@ function ResultsScreen({ caseId, sample, onReset, onOpenGlossary }: {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (apiData) {
+      setData({
+        plainSummary: apiData.whatHappened || apiData.plainSummary || "Court order summary processed.",
+        whatYouNeedToDo: apiData.whatYouNeedToDo || [],
+        keyDates: apiData.keyDates || [],
+        whereThisStands: apiData.whereThisStands || "",
+        clauses: apiData.clauses || [],
+        keyFacts: apiData.keyFacts || { parties: [], nextHearingDate: null, stage: null },
+        caseNumber: apiData.caseNumber,
+        ecourtsLink: apiData.ecourtsLink || (apiData.caseNumber ? `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${apiData.caseNumber}` : 'https://services.ecourts.gov.in/ecourtindia_v6/'),
+        language: lang
+      });
+      setLoading(false);
+      return;
+    }
+
     if (sample) {
       const summaryText = sample.plainSummary[lang] || sample.plainSummary['en'];
       const clausesList = sample.clauses[lang] || sample.clauses['en'] || sample.clauses.en;
@@ -398,6 +547,8 @@ function ResultsScreen({ caseId, sample, onReset, onOpenGlossary }: {
         plainSummary: summaryText,
         clauses: clausesList,
         keyFacts: sample.keyFacts,
+        caseNumber: sample.keyFacts.cnrNumber,
+        ecourtsLink: `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${sample.keyFacts.cnrNumber}`,
         changedFromPrevious: sample.changedFromPrevious,
         language: lang
       });
