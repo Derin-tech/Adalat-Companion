@@ -11,6 +11,7 @@ import GlossaryDrawer, { GLOSSARY_LIST } from './components/GlossaryDrawer';
 import VoicePlayer from './components/VoicePlayer';
 import TimelineWidget from './components/TimelineWidget';
 import ActionChecklist from './components/ActionChecklist';
+import ChatWidget from './components/ChatWidget';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -236,6 +237,9 @@ export default function App() {
           <p>Strictly Informational Educational Utility</p>
         </div>
       </footer>
+
+      {/* Rights-Awareness Chatbot Widget */}
+      <ChatWidget />
     </div>
   );
 }

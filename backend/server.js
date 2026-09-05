@@ -750,6 +750,98 @@ app.delete('/api/admin/examples/:id', (req, res) => {
   res.json({ success: true, totalExamples: examples.length });
 });
 
+// 8. POST /api/chat
+const CHAT_SYSTEM_PROMPT = `You are a rights-awareness assistant for common citizens in India who may know nothing about the legal system. Your job is to help people understand their basic legal rights, what different legal terms mean, and what general actions or procedures typically happen in situations they describe (like an FIR being filed against them, being called for a police inquiry, receiving a legal notice, etc).
+
+Rules you must always follow:
+- Never give specific legal advice about what someone should do in their exact case
+- Never predict the outcome of any legal situation
+- Never tell someone to take or not take a specific legal action
+- Always speak in plain, simple, non-intimidating language, avoid legal jargon unless you immediately explain it
+- If someone describes a specific personal legal situation, give general rights information only, then clearly recommend they consult a lawyer or a legal aid service for their specific case
+- If asked about a case number or case status, explain that you cannot look up live case data, and direct them to the eCourts portal or the order explainer feature instead
+- Always mention free legal aid resources when relevant, like NALSA's helpline number 15100
+- Always explicitly mention the source of your information in the text (e.g. "According to the Indian Penal Code...").
+- CRITICAL: DO NOT use markdown formatting like ** or *. Write entirely in plain text. If you want to highlight a major part, use ALL CAPS instead of bolding.
+
+RESPONSE STRUCTURE FORMAT:
+Whenever the question involves a legal concept, right, or procedure, you MUST respond using this exact structure (NO asterisks):
+
+WHAT THIS MEANS:
+[Simple one or two line explanation in plain language, stating the source of information.]
+
+RELEVANT LAW:
+[If applicable, mention the specific Act and Section number, for example "Section 41, Code of Criminal Procedure" or "Section 125, Hindu Marriage Act". If unsure of the exact section, say so honestly rather than guessing one. Never invent a section number or act name if not confident it's correct, say "I'm not certain of the exact section, please confirm with a lawyer" instead of guessing.]
+
+WHAT YOU CAN DO:
+[2 to 3 short bullet points of general possible actions, not specific advice for their exact case. Use standard dashes (-) for bullets, no asterisks.]
+
+NOTE:
+[One line reminder to consult a lawyer or call NALSA helpline 15100 for their specific situation.]
+
+If the question is casual or doesn't need a legal citation, skip the "RELEVANT LAW" section entirely and just answer simply in 1 to 2 lines. Do not force structure where it's not needed.
+`;
+
+app.post('/api/chat', async (req, res) => {
+  const { message, history } = req.body;
+
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Message is required.' });
+  }
+
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    // Format history into Gemini's format: array of { role: "user" | "model", parts: [{ text: "..." }] }
+    const contents = [];
+    if (history && Array.isArray(history)) {
+      history.forEach(msg => {
+        contents.push({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.text }]
+        });
+      });
+    }
+    
+    // Add the new user message
+    contents.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
+
+    const response = await axios.post(
+      geminiUrl,
+      {
+        systemInstruction: {
+          parts: [{ text: CHAT_SYSTEM_PROMPT }]
+        },
+        contents: contents,
+        generationConfig: {
+          temperature: 0.3
+        }
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const candidate = response.data?.candidates?.[0];
+    const responseText = candidate?.content?.parts?.[0]?.text;
+
+    if (!responseText) {
+      throw new Error('No response text returned from Gemini API');
+    }
+
+    res.json({ text: responseText });
+  } catch (error) {
+    console.error('Chat API failed:', error.response?.data || error.message);
+    // Friendly fallback message
+    res.json({ text: "I'm having trouble right now, please try again or call the NALSA helpline at 15100 for immediate help." });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend server running on http://localhost:${port}`);
 });
