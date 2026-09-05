@@ -24,6 +24,19 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (fontSize === 'large') {
+        document.documentElement.style.fontSize = '118%';
+      } else if (fontSize === 'xlarge') {
+        document.documentElement.style.fontSize = '135%';
+      } else {
+        document.documentElement.style.fontSize = '100%';
+      }
+    }
+  }, [fontSize]);
+
   const [route, setRoute] = useState<'main' | 'admin'>(
     typeof window !== 'undefined' && window.location.pathname === '/admin' ? 'admin' : 'main'
   );
@@ -64,16 +77,20 @@ export default function App() {
             <div className="flex items-center gap-1 font-mono text-xs">
               <span className="text-slate-400 mr-1">Text:</span>
               <button 
+                type="button"
                 onClick={() => setFontSize('normal')} 
-                className={`px-1.5 py-0.5 rounded border ${fontSize === 'normal' ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold' : 'border-slate-700 text-slate-300'}`}
+                className={`px-2 py-0.5 rounded border font-bold transition-all ${fontSize === 'normal' ? 'bg-amber-400 text-slate-950 border-amber-400 font-extrabold shadow-sm' : 'border-slate-700 text-slate-300 hover:text-white'}`}
+                title="Reset font size to Normal (100%)"
               >
                 A
               </button>
               <button 
-                onClick={() => setFontSize('large')} 
-                className={`px-1.5 py-0.5 rounded border ${fontSize === 'large' ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold' : 'border-slate-700 text-slate-300'}`}
+                type="button"
+                onClick={() => setFontSize(prev => prev === 'normal' ? 'large' : prev === 'large' ? 'xlarge' : 'normal')} 
+                className={`px-2 py-0.5 rounded border font-bold transition-all ${fontSize !== 'normal' ? 'bg-amber-400 text-slate-950 border-amber-400 font-extrabold shadow-sm' : 'border-slate-700 text-slate-300 hover:text-white'}`}
+                title="Enlarge font size (118% / 135%)"
               >
-                A+
+                {fontSize === 'xlarge' ? 'A++' : 'A+'}
               </button>
             </div>
           </div>
@@ -759,18 +776,44 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
   }
 
   const renderGlossaryText = (text: string) => {
-    const terms = GLOSSARY_LIST.map(g => g.term).sort((a, b) => b.length - a.length);
-    const regex = new RegExp(`\\b(${terms.join('|')})\\b`, 'gi');
+    if (!text) return text;
+    
+    // Directives & key phrases to highlight with yellow marker
+    const highlightPhrases = [
+      "interim maintenance", "interim relief", "next hearing date", "next hearing", 
+      "bailable warrant", "non-bailable warrant", "notice issued", "stay granted", 
+      "ex parte", "interim protection", "directed to pay", "compliance report", 
+      "directed to deposit", "shall deposit", "is required to", "surrender passport", 
+      "restrained from", "ordered to", "must appear", "within 15 days", "within 30 days", 
+      "within 7 days", "court appearance", "dlsa advocate", "free legal aid"
+    ];
+
+    const terms = GLOSSARY_LIST.map(g => g.term);
+    const datePattern = `\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+\\d{4}\\b`;
+    const amountPattern = `(?:₹|Rs\\.?\\s*)\\d+(?:,\\d+)*(?:\\/\\-)?`;
+
+    const allPatterns = [
+      ...highlightPhrases.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      ...terms.map(t => `\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`),
+      datePattern,
+      amountPattern
+    ];
+
+    const regex = new RegExp(`(${allPatterns.join('|')})`, 'gi');
     const parts = text.split(regex);
 
     return parts.map((part, i) => {
-      const termObj = GLOSSARY_LIST.find(g => g.term.toLowerCase() === part.toLowerCase());
+      if (!part) return null;
+      const lowerPart = part.toLowerCase();
+
+      // Glossary term match
+      const termObj = GLOSSARY_LIST.find(g => g.term.toLowerCase() === lowerPart);
       if (termObj) {
         return (
           <span key={i} className="relative group inline-block">
-            <span className="underline decoration-dashed decoration-blue-700 decoration-2 cursor-pointer font-bold text-blue-950 px-0.5 bg-yellow-100">
+            <mark className="bg-yellow-300 text-slate-950 font-bold px-1.5 py-0.5 rounded border-b-2 border-amber-400 cursor-pointer shadow-sm hover:bg-yellow-400 transition-colors">
               {part}
-            </span>
+            </mark>
             <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 rounded bg-slate-900 text-white text-xs shadow-xl border border-slate-700 z-30 pointer-events-none">
               <span className="font-bold text-amber-400 block mb-1 capitalize">{termObj.term}</span>
               {termObj.definition}
@@ -778,6 +821,20 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           </span>
         );
       }
+
+      // Check key phrases, dates, amounts
+      const isKeyPhrase = highlightPhrases.some(p => p.toLowerCase() === lowerPart) ||
+        /^\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4}$/i.test(part) ||
+        /^(?:₹|Rs\.)/i.test(part);
+
+      if (isKeyPhrase) {
+        return (
+          <mark key={i} className="bg-yellow-300 text-slate-950 font-bold px-1.5 py-0.5 rounded border-b-2 border-amber-500 shadow-sm">
+            {part}
+          </mark>
+        );
+      }
+
       return part;
     });
   };
@@ -785,7 +842,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
   return (
     <div className="space-y-6">
       {/* MANDATORY STATUTORY DISCLAIMER BANNER (PERMANENT & NON-DISMISSIBLE) */}
-      <div className="bg-amber-50 border-l-4 border-amber-600 p-4 rounded-r shadow-sm border border-slate-200 font-sans">
+      <div className="bg-amber-50 border-l-4 border-amber-600 p-4 rounded-r shadow-sm border border-slate-200 font-sans flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-start gap-3">
           <AlertCircle size={22} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
@@ -796,6 +853,10 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               This is an automated plain-language summary, not legal advice. Please consult a lawyer or legal aid service for guidance on your case.
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-1.5 bg-yellow-200 text-slate-950 text-xs font-extrabold px-3 py-1.5 rounded-full border border-amber-400 shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
+          <span>Yellow Highlighter Active</span>
         </div>
       </div>
 
@@ -934,13 +995,17 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
               {/* What You Need To Do Section if provided */}
               {data.whatYouNeedToDo && data.whatYouNeedToDo.length > 0 && (
-                <div className="govt-card p-5 border-l-4 border-l-blue-900 space-y-2">
-                  <h4 className="font-bold text-sm font-serif text-blue-950 uppercase">
+                <div className="govt-card p-5 border-l-4 border-l-amber-500 bg-amber-50/50 space-y-3">
+                  <h4 className="font-extrabold text-xs sm:text-sm font-serif text-slate-900 uppercase flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-yellow-300 text-slate-950 font-sans font-black rounded border border-amber-400">KEY ACTIONS</span>
                     What You Need To Do (Procedural Steps):
                   </h4>
-                  <ul className="list-disc pl-5 space-y-1 text-xs font-semibold text-slate-800">
+                  <ul className="space-y-2">
                     {data.whatYouNeedToDo.map((step: string, i: number) => (
-                      <li key={i}>{step}</li>
+                      <li key={i} className="bg-yellow-200/90 text-slate-950 p-3 rounded-md border-l-4 border-amber-500 font-semibold text-xs sm:text-sm shadow-sm flex items-start gap-2.5">
+                        <span className="text-amber-700 font-bold text-sm shrink-0 mt-0.5">👉</span>
+                        <span>{renderGlossaryText(step)}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -948,13 +1013,16 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
               {/* What Changed Box */}
               {data.changedFromPrevious?.changed && (
-                <div className="p-5 rounded border border-amber-300 bg-amber-50 text-amber-950 space-y-2">
-                  <h4 className="font-bold text-sm flex items-center gap-2 text-amber-900 font-serif">
+                <div className="p-5 rounded border-2 border-amber-400 bg-yellow-100 text-amber-950 space-y-2 shadow-sm">
+                  <h4 className="font-bold text-sm flex items-center gap-2 text-slate-950 font-serif">
+                    <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-sans font-bold text-xs rounded">IMPORTANT UPDATE</span>
                     Key Updates from Previous Hearing Order:
                   </h4>
-                  <ul className="list-disc pl-5 space-y-1 text-xs font-semibold">
+                  <ul className="space-y-1.5 pl-2 text-xs font-bold text-slate-900">
                     {data.changedFromPrevious.changes.map((c: string, i: number) => (
-                      <li key={i}>{c}</li>
+                      <li key={i} className="bg-yellow-200 px-2 py-1 rounded border-l-2 border-amber-500">
+                        {renderGlossaryText(c)}
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -963,7 +1031,10 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               {/* Clause breakdown */}
               {data.clauses && data.clauses.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="font-bold text-sm font-serif text-slate-900">Detailed Clause Breakdown & Source Verification</h3>
+                  <h3 className="font-bold text-sm font-serif text-slate-900 flex items-center gap-2">
+                    <span>Detailed Clause Breakdown & Source Verification</span>
+                    <span className="text-[11px] font-sans font-bold text-slate-700 bg-yellow-200 px-2 py-0.5 rounded-full border border-amber-300">Highlighted</span>
+                  </h3>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
                       key={clause.id}
@@ -1011,10 +1082,10 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                       key={clause.id}
                       onClick={() => setActiveClauseId(clause.id)}
                       className={`govt-card p-3 text-xs leading-relaxed cursor-pointer ${
-                        activeClauseId === clause.id ? 'border-blue-900 bg-blue-50 font-bold' : ''
+                        activeClauseId === clause.id ? 'border-blue-900 bg-yellow-100 font-bold' : ''
                       }`}
                     >
-                      {clause.plainText}
+                      {renderGlossaryText(clause.plainText)}
                     </div>
                   ))}
                 </div>
@@ -1049,8 +1120,9 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
         {/* Sidebar */}
         <div className="space-y-4">
           <div className="govt-card">
-            <div className="govt-card-header">
+            <div className="govt-card-header flex items-center justify-between">
               <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">Official Case Particulars</h3>
+              <span className="text-[10px] font-bold bg-yellow-200 text-slate-950 px-1.5 py-0.5 rounded border border-amber-300">Highlighted</span>
             </div>
             <div className="p-4 space-y-3 text-xs">
               <div>
@@ -1068,13 +1140,17 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase">Stage</span>
-                <span className="font-semibold text-blue-900">{data.whereThisStands || data.keyFacts?.stage || 'Interim Stage'}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Stage</span>
+                <span className="font-extrabold text-slate-950 bg-yellow-200 px-2 py-1 rounded border-b-2 border-amber-400 inline-block">
+                  {data.whereThisStands || data.keyFacts?.stage || 'Interim Stage'}
+                </span>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase">Next Hearing Date</span>
-                <span className="font-bold text-emerald-800 text-sm">{data.keyFacts?.nextHearingDate || 'Not Specified'}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Next Hearing Date</span>
+                <span className="font-black text-slate-950 bg-yellow-300 border-b-2 border-amber-500 px-2 py-1 rounded text-xs inline-block shadow-sm">
+                  {data.keyFacts?.nextHearingDate || 'Not Specified'}
+                </span>
               </div>
             </div>
           </div>
