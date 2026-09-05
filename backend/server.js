@@ -193,10 +193,25 @@ app.post('/api/explain', async (req, res) => {
     return res.status(400).json({ error: 'Field "orderText" is required.' });
   }
 
-  try {
-    console.log(`Calling Gemini API for case ${caseNumber || 'N/A'}...`);
+  // Validate caseNumber (CNR format: 16-character alphanumeric)
+  let validCaseNumber = null;
+  let ecourtsLink = null;
+  if (caseNumber && typeof caseNumber === 'string') {
+    const trimmedCnr = caseNumber.trim();
+    if (/^[A-Za-z0-9]{16}$/.test(trimmedCnr)) {
+      validCaseNumber = trimmedCnr.toUpperCase();
+      ecourtsLink = `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${validCaseNumber}`;
+    } else {
+      ecourtsLink = `https://services.ecourts.gov.in/ecourtindia_v6/`;
+    }
+  } else {
+    ecourtsLink = `https://services.ecourts.gov.in/ecourtindia_v6/`;
+  }
 
-    const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${caseNumber || 'Not specified'}\n\nCourt Order Text:\n"${orderText.trim()}"`;
+  try {
+    console.log(`Calling Gemini API for case ${validCaseNumber || caseNumber || 'N/A'}...`);
+
+    const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${validCaseNumber || caseNumber || 'Not specified'}\n\nCourt Order Text:\n"${orderText.trim()}"`;
 
     // Call Gemini 3.6 Flash
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -232,6 +247,9 @@ app.post('/api/explain', async (req, res) => {
     }
 
     let parsedJson = JSON.parse(responseText);
+    parsedJson.caseNumber = validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null);
+    parsedJson.ecourtsLink = ecourtsLink;
+
     res.json(parsedJson);
   } catch (error) {
     console.error('Gemini API call failed:', error.response?.data || error.message);
@@ -251,7 +269,10 @@ app.post('/api/explain', async (req, res) => {
         );
         const fbText = fallbackRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (fbText) {
-          return res.json(JSON.parse(fbText));
+          const parsedFb = JSON.parse(fbText);
+          parsedFb.caseNumber = validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null);
+          parsedFb.ecourtsLink = ecourtsLink;
+          return res.json(parsedFb);
         }
       }
     } catch (fbError) {
@@ -272,6 +293,8 @@ app.post('/api/explain', async (req, res) => {
       whereThisStands: mockData?.keyFacts?.stage || "Interim Stage",
       clauses: mockData?.clauses || [],
       keyFacts: mockData?.keyFacts || { parties: [], nextHearingDate: null, stage: null },
+      caseNumber: validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null),
+      ecourtsLink: ecourtsLink,
       fallback: true,
       errorDetails: error.message
     });

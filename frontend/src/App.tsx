@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
   FileText, ChevronRight, AlertCircle, CheckCircle2, 
   BookOpen, Scale, Columns, Copy, ArrowLeft, ShieldCheck, Printer, Check, 
-  Landmark, PhoneCall, FileCheck2
+  Landmark, PhoneCall, FileCheck2, ExternalLink
 } from 'lucide-react';
 import { SAMPLE_ORDERS } from './data/sampleOrders';
 import type { SampleOrder, Clause } from './data/sampleOrders';
@@ -500,6 +500,17 @@ function ResultsScreen({ caseId, sample, onReset, onOpenGlossary }: {
           {/* Audio Reader */}
           <VoicePlayer textToRead={data.plainSummary} lang={lang} darkMode={false} />
 
+          {/* View Original on eCourts Button */}
+          <a
+            href={data.ecourtsLink || `https://services.ecourts.gov.in/ecourtindia_v6/`}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-1.5 rounded bg-blue-900 hover:bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+          >
+            <ExternalLink size={14} className="text-amber-400" />
+            <span>View Original on eCourts</span>
+          </a>
+
           {/* Output Language Selector */}
           <div className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-bold text-slate-800">
             <span className="text-slate-500">Output Language:</span>
@@ -575,12 +586,22 @@ function ResultsScreen({ caseId, sample, onReset, onOpenGlossary }: {
             <>
               {/* Executive Plain Summary */}
               <div className="govt-card">
-                <div className="govt-card-header flex items-center justify-between">
+                <div className="govt-card-header flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-bold text-sm text-slate-900 font-serif flex items-center gap-2">
                     <FileText size={18} className="text-blue-900" />
                     Plain Language Explanation of Order
                   </h3>
-                  <span className="text-[11px] text-slate-500 font-medium">Underlined words denote statutory terms</span>
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={data.ecourtsLink || `https://services.ecourts.gov.in/ecourtindia_v6/`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-bold text-blue-900 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink size={12} />
+                      View Original on eCourts ↗
+                    </a>
+                  </div>
                 </div>
                 <div className="p-6">
                   <p className="text-base sm:text-lg leading-relaxed font-sans text-slate-900">
