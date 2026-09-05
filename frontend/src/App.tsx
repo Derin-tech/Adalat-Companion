@@ -40,10 +40,15 @@ export default function App() {
     const [isSigningIn, setIsSigningIn] = useState(false);
 
     useEffect(() => {
-      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        setUser(currentUser);
-      });
-      return () => unsubscribe();
+      if (!auth) return;
+      try {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          setUser(currentUser);
+        });
+        return () => unsubscribe();
+      } catch (e) {
+        console.warn('Firebase onAuthStateChanged error:', e);
+      }
     }, []);
 
   useEffect(() => {
@@ -79,6 +84,10 @@ export default function App() {
 
   const handleGoogleSignIn = async () => {
     setSignInError(null);
+    if (!auth || !googleProvider) {
+      setSignInError('Firebase configuration is not set. Please configure VITE_FIREBASE_* credentials in your .env file.');
+      return;
+    }
     setIsSigningIn(true);
     try {
       await signInWithPopup(auth, googleProvider);
@@ -92,7 +101,10 @@ export default function App() {
   };
 
   const handleSignOut = () => {
-    signOut(auth);
+    if (auth) {
+      signOut(auth).catch(err => console.error(err));
+    }
+    setUser(null);
   };
 
   return (
