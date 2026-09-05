@@ -356,22 +356,15 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
     setRetryMessage('');
     try {
       const res = await axios.post(`${API_BASE}/lookup/start`, {
-        registrationNumber: cnr.trim(),
-        caseType: "1",
-        courtCode: "1",
-        stateCode: "1"
+        cnrNumber: cnr.trim().toUpperCase()
       });
-      if (res.data.fallback) {
-        onSelectSample(SAMPLE_ORDERS[0]);
-      } else {
-        setLookupId(res.data.lookupId);
-        setCaptchaImage(res.data.captchaImage);
-        setIsCaptchaMode(true);
-      }
+      setLookupId(res.data.lookupId);
+      setCaptchaImage(res.data.captchaImage);
+      setIsCaptchaMode(true);
     } catch (err: any) {
       console.error(err);
-      setError('Notice: eCourts API lookup offline. Displaying reference order.');
-      onSelectSample(SAMPLE_ORDERS[0]);
+      const errMsg = err.response?.data?.error || 'Could not connect to the eCourts portal. The portal may be temporarily unavailable. Please try again later.';
+      setError(errMsg);
     } finally {
       setIsFetching(false);
     }
@@ -387,23 +380,25 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
       const res = await axios.post(`${API_BASE}/lookup/${lookupId}/submit`, {
         captchaText: captchaText.trim()
       });
-      if (res.data.fallback) {
-         onSelectSample(SAMPLE_ORDERS[0]);
-      } else if (res.data.success) {
+      if (res.data.success && res.data.data) {
          onSuccess(`case-cnr-${cnr}`, res.data.data);
       } else if (res.data.retryCaptchaImage) {
          setCaptchaImage(res.data.retryCaptchaImage);
          setCaptchaText('');
-         setRetryMessage("That wasn't quite right, let's try again.");
+         setRetryMessage(res.data.message || "That wasn't quite right, let's try again.");
+      } else if (res.data.message) {
+         setError(res.data.message);
+         setIsCaptchaMode(false);
       }
     } catch (err: any) {
       console.error(err);
       if (err.response?.status === 404) {
-        setError('Your session expired. Please restart the lookup.');
+        setError('Your session expired. Please restart the CNR lookup.');
         setIsCaptchaMode(false);
       } else {
-        setError('Notice: eCourts API lookup offline. Displaying reference order.');
-        onSelectSample(SAMPLE_ORDERS[0]);
+        const errMsg = err.response?.data?.error || 'Could not retrieve case data from eCourts portal. The portal may be temporarily unavailable.';
+        setError(errMsg);
+        setIsCaptchaMode(false);
       }
     } finally {
       setIsFetching(false);

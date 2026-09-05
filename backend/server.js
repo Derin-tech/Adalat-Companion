@@ -81,45 +81,341 @@ app.get('/api/summary/:caseId', async (req, res) => {
   }
 });
 
-// 3. POST /api/lookup/start (CAPTCHA Relay)
-app.post('/api/lookup/start', async (req, res) => {
-  try {
-    const response = await axios.post(`${AI_PIPELINE_URL}/lookup/start`, req.body);
-    res.json(response.data);
-  } catch (error) {
-    console.error('AI pipeline lookup/start failed, falling back to mock data:', error.message);
-    const mockData = getMockData('lookup1.json');
-    if (mockData) {
-      // Return a simulated captcha response for frontend fallback
-      res.json({
-        lookupId: 'mock-lookup-123',
-        captchaImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', // tiny transparent png
-        fallback: true
-      });
-    } else {
-      res.status(500).json({ error: 'Mock data not found' });
+// eCourts portal live lookup integration
+const cheerio = require('cheerio');
+
+const ECOURTS_BASE = 'https://services.ecourts.gov.in/ecourtindia_v6';
+
+// In-memory session store for pending lookups (keyed by lookupId)
+const lookupSessions = new Map();
+
+// Cleanup stale sessions after 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, session] of lookupSessions) {
+    if (now - session.createdAt > 5 * 60 * 1000) {
+      lookupSessions.delete(id);
     }
+  }
+}, 60 * 1000);
+
+// Helper: extract cookies from set-cookie headers
+function extractCookies(setCookieHeaders) {
+  if (!setCookieHeaders) return '';
+  const headers = Array.isArray(setCookieHeaders) ? setCookieHeaders : [setCookieHeaders];
+  return headers.map(c => c.split(';')[0]).join('; ');
+}
+
+// Helper: merge cookies
+function mergeCookies(existing, newCookies) {
+  const cookieMap = new Map();
+  const parse = (str) => {
+    if (!str) return;
+    str.split(';').forEach(pair => {
+      const [key, ...val] = pair.trim().split('=');
+      if (key) cookieMap.set(key.trim(), val.join('='));
+    });
+  };
+  parse(existing);
+  if (typeof newCookies === 'string') {
+    parse(newCookies);
+  } else if (Array.isArray(newCookies)) {
+    newCookies.forEach(c => parse(c.split(';')[0]));
+  }
+  return [...cookieMap.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+// 3. POST /api/lookup/start — Initialize eCourts session + fetch CAPTCHA
+app.post('/api/lookup/start', async (req, res) => {
+  const { cnrNumber } = req.body;
+  
+  if (!cnrNumber || typeof cnrNumber !== 'string' || cnrNumber.trim().length !== 16) {
+    return res.status(400).json({ error: 'A valid 16-digit CNR number is required.' });
+  }
+
+  try {
+    console.log(`[eCourts Lookup] Starting session for CNR: ${cnrNumber.trim().toUpperCase()}`);
+    
+    // Step 1: Load homepage to get session cookie + app_token
+    const homeRes = await axios.get(`${ECOURTS_BASE}/?p=home/index`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      timeout: 15000,
+      maxRedirects: 5,
+    });
+
+    let cookies = extractCookies(homeRes.headers['set-cookie']);
+    
+    // Extract app_token from HTML
+    const $ = cheerio.load(homeRes.data);
+    let appToken = $('#app_token').val() || '';
+    
+    console.log(`[eCourts Lookup] Got session. app_token: ${appToken ? appToken.substring(0, 10) + '...' : 'empty'}`);
+
+    // Step 2: Fetch CAPTCHA image using same session
+    const captchaUrl = `${ECOURTS_BASE}/vendor/securimage/securimage_show.php?${Math.random()}`;
+    const captchaRes = await axios.get(captchaUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Cookie': cookies,
+        'Referer': `${ECOURTS_BASE}/?p=home/index`,
+      },
+      responseType: 'arraybuffer',
+      timeout: 10000,
+    });
+
+    // Merge any new cookies from captcha response
+    cookies = mergeCookies(cookies, captchaRes.headers['set-cookie']);
+
+    // Convert CAPTCHA image to base64 data URI
+    const captchaBase64 = Buffer.from(captchaRes.data).toString('base64');
+    const captchaMime = captchaRes.headers['content-type'] || 'image/png';
+    const captchaDataUri = `data:${captchaMime};base64,${captchaBase64}`;
+
+    // Store session
+    const lookupId = 'lookup-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+    lookupSessions.set(lookupId, {
+      cnrNumber: cnrNumber.trim().toUpperCase(),
+      cookies,
+      appToken,
+      createdAt: Date.now(),
+    });
+
+    console.log(`[eCourts Lookup] Session stored: ${lookupId}. CAPTCHA fetched (${captchaRes.data.length} bytes).`);
+
+    res.json({
+      lookupId,
+      captchaImage: captchaDataUri,
+      fallback: false,
+    });
+
+  } catch (error) {
+    console.error('[eCourts Lookup] Failed to start session:', error.message);
+    res.status(502).json({ 
+      error: 'Could not connect to the eCourts portal. The portal may be temporarily unavailable. Please try again later.',
+      details: error.message 
+    });
   }
 });
 
-// 3.1 POST /api/lookup/:lookupId/submit
+// 3.1 POST /api/lookup/:lookupId/submit — Submit CAPTCHA + fetch case data
 app.post('/api/lookup/:lookupId/submit', async (req, res) => {
+  const { lookupId } = req.params;
+  const { captchaText } = req.body;
+
+  const session = lookupSessions.get(lookupId);
+  if (!session) {
+    return res.status(404).json({ error: 'Session expired or not found. Please restart the lookup.' });
+  }
+
+  if (!captchaText || typeof captchaText !== 'string' || !captchaText.trim()) {
+    return res.status(400).json({ error: 'CAPTCHA answer is required.' });
+  }
+
   try {
-    const response = await axios.post(`${AI_PIPELINE_URL}/lookup/${req.params.lookupId}/submit`, req.body);
-    res.json(response.data);
-  } catch (error) {
-    console.error('AI pipeline lookup/submit failed, falling back to mock data:', error.message);
-    const mockData = getMockData('lookup1.json');
-    if (error.response?.status === 404) {
-       return res.status(404).json(error.response.data);
-    }
-    if (mockData) {
-      res.json({ success: true, data: mockData, fallback: true });
+    console.log(`[eCourts Lookup] Submitting CNR ${session.cnrNumber} with CAPTCHA answer...`);
+
+    const postData = `cino=${encodeURIComponent(session.cnrNumber)}&fcaptcha_code=${encodeURIComponent(captchaText.trim())}&ajax_req=true&app_token=${encodeURIComponent(session.appToken)}`;
+
+    const searchRes = await axios.post(
+      `${ECOURTS_BASE}/?p=cnr_status/searchByCNR/`,
+      postData,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': session.cookies,
+          'Referer': `${ECOURTS_BASE}/?p=home/index`,
+          'X-Requested-With': 'XMLHttpRequest',
+          'delimeter': 'du7rdsf2484rf',
+          'D768623tye8gfew': 'du7rdsf2484rf',
+        },
+        timeout: 20000,
+        validateStatus: () => true,
+      }
+    );
+
+    // Update session cookies and app_token from response
+    session.cookies = mergeCookies(session.cookies, searchRes.headers['set-cookie']);
+    
+    let result;
+    if (typeof searchRes.data === 'string') {
+      try { result = JSON.parse(searchRes.data); } catch { result = { casetype_list: searchRes.data, status: 2 }; }
     } else {
-      res.status(500).json({ error: 'Mock data not found' });
+      result = searchRes.data;
     }
+
+    // Update app_token if returned
+    if (result.app_token) {
+      session.appToken = result.app_token;
+    }
+
+    console.log(`[eCourts Lookup] Response status: ${result.status}, has casetype_list: ${!!result.casetype_list}`);
+
+    // status=0 means CAPTCHA was wrong or error
+    if (result.status === 0 || result.status === '0') {
+      // Fetch new CAPTCHA for retry
+      try {
+        const newCaptchaUrl = `${ECOURTS_BASE}/vendor/securimage/securimage_show.php?${Math.random()}`;
+        const newCaptchaRes = await axios.get(newCaptchaUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Cookie': session.cookies,
+            'Referer': `${ECOURTS_BASE}/?p=home/index`,
+          },
+          responseType: 'arraybuffer',
+          timeout: 10000,
+        });
+        session.cookies = mergeCookies(session.cookies, newCaptchaRes.headers['set-cookie']);
+        const newBase64 = Buffer.from(newCaptchaRes.data).toString('base64');
+        const newMime = newCaptchaRes.headers['content-type'] || 'image/png';
+        
+        return res.json({
+          success: false,
+          retryCaptchaImage: `data:${newMime};base64,${newBase64}`,
+          message: result.errormsg || 'Invalid CAPTCHA. Please try again.',
+        });
+      } catch (captchaErr) {
+        console.error('[eCourts Lookup] Failed to fetch retry CAPTCHA:', captchaErr.message);
+        return res.json({
+          success: false,
+          retryCaptchaImage: null,
+          message: 'Invalid CAPTCHA and failed to load a new one. Please restart the lookup.',
+        });
+      }
+    }
+
+    // status=1 or 2 means we have case data (HTML)
+    if (result.casetype_list) {
+      const parsedData = parseEcourtsHtml(result.casetype_list, session.cnrNumber);
+      
+      // Clean up session
+      lookupSessions.delete(lookupId);
+
+      return res.json({
+        success: true,
+        data: parsedData,
+        fallback: false,
+      });
+    }
+
+    // Unexpected response
+    lookupSessions.delete(lookupId);
+    return res.json({
+      success: false,
+      message: result.errormsg || 'No case data found for this CNR number. Please verify and try again.',
+    });
+
+  } catch (error) {
+    console.error('[eCourts Lookup] Submit failed:', error.message);
+    lookupSessions.delete(lookupId);
+    res.status(502).json({ 
+      error: 'Could not retrieve case data from eCourts portal. The portal may be temporarily unavailable.',
+      details: error.message 
+    });
   }
 });
+
+// Helper: Parse eCourts HTML response into structured data
+function parseEcourtsHtml(html, cnrNumber) {
+  const $ = cheerio.load(html);
+  
+  const data = {
+    caseNumber: cnrNumber,
+    ecourtsLink: `https://services.ecourts.gov.in/ecourtindia_v6/?p=home/index&cino=${cnrNumber}`,
+    rawHtml: html,
+  };
+
+  // Try to extract case details from tables
+  const tables = $('table');
+  const keyFacts = {
+    parties: [],
+    nextHearingDate: null,
+    stage: null,
+    courtName: null,
+    judgeName: null,
+    caseTitle: null,
+    cnrNumber: cnrNumber,
+  };
+
+  // Parse all table rows looking for key-value patterns
+  const allText = [];
+  tables.each((_, table) => {
+    $(table).find('tr').each((_, tr) => {
+      const cells = $(tr).find('td, th');
+      if (cells.length >= 2) {
+        const label = $(cells[0]).text().trim().toLowerCase();
+        const value = $(cells[1]).text().trim();
+        
+        if (label.includes('case type') || label.includes('case no')) {
+          keyFacts.caseTitle = value;
+        }
+        if (label.includes('petitioner') || label.includes('complainant') || label.includes('applicant')) {
+          keyFacts.parties.push(value + ' (Petitioner)');
+        }
+        if (label.includes('respondent') || label.includes('accused') || label.includes('opposite party')) {
+          keyFacts.parties.push(value + ' (Respondent)');
+        }
+        if (label.includes('next') && label.includes('date')) {
+          keyFacts.nextHearingDate = value;
+        }
+        if (label.includes('stage') || label.includes('status')) {
+          keyFacts.stage = value;
+        }
+        if (label.includes('court') && !label.includes('order')) {
+          keyFacts.courtName = value;
+        }
+        if (label.includes('judge') || label.includes('bench')) {
+          keyFacts.judgeName = value;
+        }
+      }
+      // Collect all text for summary
+      const rowText = $(tr).text().trim();
+      if (rowText) allText.push(rowText);
+    });
+  });
+
+  // Also check for labeled spans/divs
+  $('label, strong, b, span.case_details_label').each((_, el) => {
+    const labelText = $(el).text().trim().toLowerCase();
+    const nextText = $(el).next().text().trim() || $(el).parent().text().trim();
+    
+    if (labelText.includes('next date') && nextText) {
+      // Try to extract just the date portion
+      const dateMatch = nextText.match(/\d{2}[-\/]\d{2}[-\/]\d{4}/);
+      if (dateMatch) keyFacts.nextHearingDate = dateMatch[0];
+    }
+  });
+
+  // Extract case title from heading if not found in tables
+  if (!keyFacts.caseTitle) {
+    const heading = $('h2, h3, h4, .case_number, .case_details').first().text().trim();
+    if (heading) keyFacts.caseTitle = heading;
+  }
+
+  // Build a plain summary from the HTML
+  const plainText = $.root().text().replace(/\s+/g, ' ').trim();
+  
+  data.keyFacts = keyFacts;
+  data.plainSummary = plainText.substring(0, 1000) || 'Case data retrieved from eCourts portal.';
+  data.whatHappened = `Case data for CNR ${cnrNumber} retrieved from eCourts portal. ${keyFacts.caseTitle ? 'Case: ' + keyFacts.caseTitle + '.' : ''} ${keyFacts.stage ? 'Current stage: ' + keyFacts.stage + '.' : ''}`;
+  data.whatYouNeedToDo = [];
+  if (keyFacts.nextHearingDate) {
+    data.whatYouNeedToDo.push(`Attend the next hearing on ${keyFacts.nextHearingDate}.`);
+  }
+  data.keyDates = [];
+  if (keyFacts.nextHearingDate) {
+    data.keyDates.push(`${keyFacts.nextHearingDate}: Next hearing date`);
+  }
+  data.whereThisStands = keyFacts.stage || 'See case details below.';
+  data.clauses = [];
+
+  return data;
+}
+
 
 // 4. POST /api/explain
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
