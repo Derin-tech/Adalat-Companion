@@ -82,7 +82,7 @@ app.get('/api/summary/:caseId', async (req, res) => {
 });
 
 // 4. POST /api/explain
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 
 const EXPLAIN_SYSTEM_PROMPT = `
 You are a neutral plain-language court order explainer for self-represented litigants and legal-aid users in India.
@@ -194,59 +194,69 @@ app.post('/api/explain', async (req, res) => {
   }
 
   try {
-    console.log(`Calling Anthropic API for case ${caseNumber || 'N/A'}...`);
+    console.log(`Calling Gemini API for case ${caseNumber || 'N/A'}...`);
 
     const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${caseNumber || 'Not specified'}\n\nCourt Order Text:\n"${orderText.trim()}"`;
 
+    // Call Gemini 3.6 Flash
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
+
     const response = await axios.post(
-      'https://api.anthropic.com/v1/messages',
+      geminiUrl,
       {
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: EXPLAIN_SYSTEM_PROMPT,
-        messages: [
+        systemInstruction: {
+          parts: [{ text: EXPLAIN_SYSTEM_PROMPT }]
+        },
+        contents: [
           {
-            role: 'user',
-            content: userPrompt
+            parts: [{ text: userPrompt }]
           }
-        ]
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.2
+        }
       },
       {
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
+          'Content-Type': 'application/json'
         }
       }
     );
 
-    const responseText = response.data.content[0].text;
-    
-    // Parse JSON from response
-    let parsedJson;
-    try {
-      // Find JSON block if wrapped in markdown code blocks
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedJson = JSON.parse(jsonMatch[0]);
-      } else {
-        parsedJson = JSON.parse(responseText);
-      }
-    } catch (parseError) {
-      console.warn('Direct JSON parsing failed, raw response:', responseText);
-      parsedJson = {
-        whatHappened: responseText,
-        whatYouNeedToDo: ["Review original document with legal counsel."],
-        keyDates: [],
-        whereThisStands: "Pending review",
-        clauses: [],
-        keyFacts: { parties: [], nextHearingDate: null, stage: null }
-      };
+    const candidate = response.data?.candidates?.[0];
+    const responseText = candidate?.content?.parts?.[0]?.text;
+
+    if (!responseText) {
+      throw new Error('No response text returned from Gemini API');
     }
 
+    let parsedJson = JSON.parse(responseText);
     res.json(parsedJson);
   } catch (error) {
-    console.error('Anthropic API call failed:', error.response?.data || error.message);
+    console.error('Gemini API call failed:', error.response?.data || error.message);
+    
+    // Attempt fallback model (gemini-1.5-flash) if 2.5 flash was not found
+    try {
+      if (error.response?.status === 404 && GEMINI_API_KEY) {
+        console.log('Retrying with gemini-1.5-flash...');
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        const fallbackRes = await axios.post(
+          fallbackUrl,
+          {
+            systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
+            contents: [{ parts: [{ text: `Case Number: ${caseNumber || 'N/A'}\nOrder: ${orderText}` }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          }
+        );
+        const fbText = fallbackRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (fbText) {
+          return res.json(JSON.parse(fbText));
+        }
+      }
+    } catch (fbError) {
+      console.error('Fallback Gemini call also failed:', fbError.message);
+    }
     
     // Fallback response if Anthropic API call fails or model unavailable
     const mockData = getMockData('sample1.json');
