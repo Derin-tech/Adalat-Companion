@@ -12,6 +12,8 @@ import VoicePlayer from './components/VoicePlayer';
 import TimelineWidget from './components/TimelineWidget';
 import ActionChecklist from './components/ActionChecklist';
 import ChatWidget from './components/ChatWidget';
+import { auth, googleProvider } from './firebase';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -25,6 +27,36 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+      });
+      return () => unsubscribe();
+    }
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    if (!auth || !googleProvider) {
+      alert("Firebase Auth is not configured. Please verify VITE_FIREBASE_* variables in .env");
+      return;
+    }
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      console.error("Sign in error:", err);
+      alert(err.message || "Failed to sign in with Google.");
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (auth) {
+      await signOut(auth);
+    }
+  };
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -119,6 +151,38 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 no-print">
+            {user ? (
+              <div className="flex items-center gap-2 bg-slate-800/90 border border-amber-500/50 rounded-lg px-3 py-1.5 text-xs text-white">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName || 'User'} className="w-6 h-6 rounded-full border border-amber-400 object-cover" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-xs">
+                    {user.displayName?.[0] || 'U'}
+                  </div>
+                )}
+                <span className="font-semibold text-amber-300 hidden sm:inline">{user.displayName || user.email}</span>
+                <button
+                  onClick={handleSignOut}
+                  className="ml-1 text-[11px] text-slate-300 hover:text-white underline"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleGoogleSignIn}
+                className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded bg-amber-400 hover:bg-amber-300 text-slate-950 transition-colors shadow-sm cursor-pointer"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.15C3.26 21.3 7.33 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.39l3.99-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"/>
+                </svg>
+                <span>Sign in with Google</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsGlossaryOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition-colors"
@@ -319,7 +383,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
     if (sample) {
       setOrderText(sample.rawOrderText || '');
       setCnr(sample.keyFacts?.cnrNumber || '');
-      setActiveTab('text');
+      onSelectSample(sample);
     }
   };
 
@@ -685,7 +749,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
 }
 
 {/* Official Results & Document View Screen */}
-function ResultsScreen({ caseId, sample, apiData, onReset }: {
+function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
   caseId: string | null;
   sample: SampleOrder | null;
   apiData?: any | null;
@@ -726,15 +790,28 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
     }
 
     if (sample) {
-      const summaryText = sample.plainSummary[lang] || sample.plainSummary['en'];
-      const clausesList = sample.clauses[lang] || sample.clauses['en'] || sample.clauses.en;
+      let summaryText = "";
+      if (typeof sample.plainSummary === 'string') {
+        summaryText = sample.plainSummary;
+      } else if (sample.plainSummary && typeof sample.plainSummary === 'object') {
+        summaryText = sample.plainSummary[lang] || sample.plainSummary['en'] || Object.values(sample.plainSummary)[0] || "";
+      }
+
+      let clausesList: Clause[] = [];
+      if (Array.isArray(sample.clauses)) {
+        clausesList = sample.clauses;
+      } else if (sample.clauses && typeof sample.clauses === 'object') {
+        clausesList = sample.clauses[lang] || sample.clauses['en'] || (sample.clauses as any).en || Object.values(sample.clauses)[0] || [];
+      }
+
       setData({
         plainSummary: summaryText,
         clauses: clausesList,
-        keyFacts: sample.keyFacts,
-        caseNumber: sample.keyFacts.cnrNumber,
-        ecourtsLink: `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${sample.keyFacts.cnrNumber}`,
-        changedFromPrevious: sample.changedFromPrevious,
+        keyFacts: sample.keyFacts || {},
+        caseNumber: sample.keyFacts?.cnrNumber || (sample as any).caseNumber || '',
+        ecourtsLink: (sample as any).ecourtsLink || `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${sample.keyFacts?.cnrNumber || ''}`,
+        changedFromPrevious: sample.changedFromPrevious || { changed: false, changes: [] },
+        legalGlossary: (sample as any).legalGlossary || [],
         language: lang
       });
       setLoading(false);
@@ -1247,8 +1324,6 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
             </div>
           </div>
 
-<<<<<<< Updated upstream
-=======
           {/* Email Reminder Card - only when a hearing date exists */}
           {data.keyFacts?.nextHearingDate && (
             <div className="govt-card">
@@ -1301,19 +1376,18 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
           <div className="govt-card p-4 space-y-2">
             <h4 className="font-bold text-xs text-slate-900 uppercase flex items-center gap-1.5">
               <BookOpen size={16} className="text-blue-900" />
-              {t('legalGlossarySearchTitle')}
+              Statutory Legal Glossary Search
             </h4>
             <p className="text-xs text-slate-600">
-              {t('legalGlossarySearchDesc')}
+              Need assistance understanding terms like <em>ex parte</em>, <em>remit</em>, or <em>surety bond</em>?
             </p>
             <button
               onClick={onOpenGlossary}
               className="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-800 transition-colors"
             >
-              {t('openGlossaryPanelBtn')}
+              Open Statutory Glossary Panel
             </button>
           </div>
->>>>>>> Stashed changes
         </div>
       </div>
     </div>
