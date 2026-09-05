@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
   FileText, ChevronRight, AlertCircle, CheckCircle2, 
   BookOpen, Scale, Columns, Copy, ArrowLeft, ShieldCheck, Printer, Check, 
-  Landmark, PhoneCall, FileCheck2, ExternalLink
+  Landmark, PhoneCall, FileCheck2, ExternalLink, Plus, Trash2
 } from 'lucide-react';
 import { SAMPLE_ORDERS } from './data/sampleOrders';
 import type { SampleOrder, Clause } from './data/sampleOrders';
@@ -24,12 +24,17 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+  const [route, setRoute] = useState<'main' | 'admin'>(
+    typeof window !== 'undefined' && window.location.pathname === '/admin' ? 'admin' : 'main'
+  );
 
   const handleReset = () => {
     setCaseId(null);
     setSelectedSample(null);
     setApiData(null);
     setError(null);
+    setRoute('main');
+    if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
   };
 
   const getFontSizeClass = () => {
@@ -109,8 +114,21 @@ export default function App() {
         {/* Sub-header Navigation Bar */}
         <div className="bg-slate-900/90 border-t border-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 no-print">
           <div className="max-w-7xl mx-auto flex items-center gap-6">
-            <span className={`cursor-pointer ${!caseId && !selectedSample && !apiData ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} onClick={handleReset}>
+            <span 
+              className={`cursor-pointer ${route === 'main' && !caseId && !selectedSample && !apiData ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} 
+              onClick={handleReset}
+            >
               Order Explainer
+            </span>
+            <span>•</span>
+            <span 
+              className={`cursor-pointer ${route === 'admin' ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
+              onClick={() => {
+                if (typeof window !== 'undefined') window.history.pushState({}, '', '/admin');
+                setRoute('admin');
+              }}
+            >
+              Admin Portal (/admin)
             </span>
             <span>•</span>
             <span className="hover:text-white cursor-pointer" onClick={() => setIsGlossaryOpen(true)}>
@@ -133,7 +151,9 @@ export default function App() {
           </div>
         )}
 
-        {loading ? (
+        {route === 'admin' ? (
+          <AdminScreen onGoBack={handleReset} />
+        ) : loading ? (
           <LoadingWidget />
         ) : !caseId && !selectedSample && !apiData ? (
           <UploadScreen 
@@ -246,16 +266,31 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
   const [orderText, setOrderText] = useState('');
   const [selectedSampleId, setSelectedSampleId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'upload' | 'text' | 'cnr'>('upload');
+  const [availableSamples, setAvailableSamples] = useState<SampleOrder[]>(SAMPLE_ORDERS);
+
+  useEffect(() => {
+    const loadDynamicExamples = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/examples`);
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          setAvailableSamples(res.data);
+        }
+      } catch (err) {
+        setAvailableSamples(SAMPLE_ORDERS);
+      }
+    };
+    loadDynamicExamples();
+  }, []);
 
   const handleDropdownSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const sampleId = e.target.value;
     setSelectedSampleId(sampleId);
     if (!sampleId) return;
 
-    const sample = SAMPLE_ORDERS.find(s => s.id === sampleId);
+    const sample = availableSamples.find(s => s.id === sampleId) || SAMPLE_ORDERS.find(s => s.id === sampleId);
     if (sample) {
       setOrderText(sample.rawOrderText || '');
-      setCnr(sample.keyFacts.cnrNumber || '');
+      setCnr(sample.keyFacts?.cnrNumber || '');
       setActiveTab('text');
     }
   };
@@ -276,7 +311,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
       console.error('Live API call error:', err);
       // Friendly user fallback notification
       setError('Notice: Live AI service encountered a temporary connection delay. Displaying a pre-verified offline plain-language explanation.');
-      const matched = SAMPLE_ORDERS.find(s => s.id === selectedSampleId) || SAMPLE_ORDERS[0];
+      const matched = availableSamples.find(s => s.id === selectedSampleId) || availableSamples[0] || SAMPLE_ORDERS[0];
       onSelectSample(matched);
     } finally {
       setLoading(false);
@@ -285,7 +320,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
 
   const handleExplainOffline = () => {
     setError(null);
-    const matched = SAMPLE_ORDERS.find(s => s.id === selectedSampleId) || SAMPLE_ORDERS[0];
+    const matched = availableSamples.find(s => s.id === selectedSampleId) || availableSamples[0] || SAMPLE_ORDERS[0];
     onSelectSample(matched);
   };
 
@@ -384,7 +419,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
               className="px-3 py-1.5 text-xs font-bold rounded border border-blue-900 bg-blue-50 text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-900 cursor-pointer shadow-sm"
             >
               <option value="">-- Select Preloaded Sample Order --</option>
-              {SAMPLE_ORDERS.map((sample) => (
+              {availableSamples.map((sample) => (
                 <option key={sample.id} value={sample.id}>
                   {sample.title} ({sample.badge})
                 </option>
@@ -510,7 +545,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
-          {SAMPLE_ORDERS.map((sample) => (
+          {availableSamples.map((sample) => (
             <div 
               key={sample.id}
               onClick={() => onSelectSample(sample)}
@@ -969,6 +1004,385 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
             >
               Open Statutory Glossary Panel
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+{/* Administrative Demo Case Management Screen */}
+function AdminScreen({ onGoBack }: { onGoBack: () => void }) {
+  const [orderType, setOrderType] = useState('Interim Maintenance Order');
+  const [customTitle, setCustomTitle] = useState('');
+  const [cnrNumber, setCnrNumber] = useState('');
+  const [courtName, setCourtName] = useState('District & Sessions Court, Delhi');
+  const [parties, setParties] = useState('');
+  const [inputMode, setInputMode] = useState<'text' | 'file'>('text');
+  const [rawOrderText, setRawOrderText] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [plainSummary, setPlainSummary] = useState('');
+
+  const [examples, setExamples] = useState<SampleOrder[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchExamples = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/examples`);
+      if (res.data && Array.isArray(res.data)) {
+        setExamples(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load examples', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchExamples();
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      if (!rawOrderText) {
+        setRawOrderText(`[Uploaded Document File: ${file.name}]`);
+      }
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputMode === 'text' && !rawOrderText.trim()) {
+      setStatusMsg({ type: 'error', text: 'Please enter order text or upload a document.' });
+      return;
+    }
+    if (inputMode === 'file' && !selectedFile && !rawOrderText.trim()) {
+      setStatusMsg({ type: 'error', text: 'Please select a document file to upload.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    const formData = new FormData();
+    const finalTitle = orderType === 'Custom' ? (customTitle || 'Custom Court Order') : orderType;
+    formData.append('title', finalTitle);
+    formData.append('badge', orderType);
+    formData.append('description', `Demo example case for ${finalTitle}`);
+    formData.append('rawOrderText', rawOrderText.trim());
+    formData.append('cnrNumber', cnrNumber.trim());
+    formData.append('courtName', courtName.trim());
+    formData.append('parties', parties.trim() || 'Petitioner vs Respondent');
+    formData.append('stage', orderType);
+    formData.append('plainSummary', plainSummary.trim() || `Plain language summary for ${finalTitle}.`);
+
+    if (selectedFile) {
+      formData.append('file', selectedFile);
+    }
+
+    try {
+      const res = await axios.post(`${API_BASE}/admin/examples`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (res.data?.success) {
+        setStatusMsg({ type: 'success', text: `Demo case "${finalTitle}" successfully added to dynamic dropdown dataset!` });
+        setRawOrderText('');
+        setSelectedFile(null);
+        setCnrNumber('');
+        setParties('');
+        setPlainSummary('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        fetchExamples();
+      }
+    } catch (err: any) {
+      console.error('Submit example error:', err);
+      setStatusMsg({ type: 'error', text: err.response?.data?.error || 'Failed to add demo case.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string, title: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}" from demo cases?`)) return;
+    try {
+      await axios.delete(`${API_BASE}/admin/examples/${id}`);
+      fetchExamples();
+      setStatusMsg({ type: 'success', text: `Demo case deleted.` });
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: 'Failed to delete example.' });
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Top Banner */}
+      <div className="bg-slate-900 text-white p-6 rounded-lg shadow-md border-l-8 border-amber-500 flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={24} className="text-amber-400" />
+            <h2 className="text-xl font-bold font-serif">Demo Case Administrative Portal</h2>
+          </div>
+          <p className="text-xs text-slate-300 mt-1">
+            Add or manage demo cases stored in <code className="text-amber-300 bg-slate-800 px-1 py-0.5 rounded">backend/data/examples.json</code>. Changes immediately update the "Try an Example" dropdown on the main portal.
+          </p>
+        </div>
+        <button
+          onClick={onGoBack}
+          className="flex items-center gap-2 px-4 py-2 bg-amber-400 text-slate-950 font-bold rounded hover:bg-amber-300 text-xs transition-colors shadow"
+        >
+          <ArrowLeft size={16} />
+          Return to Explainer Portal
+        </button>
+      </div>
+
+      {statusMsg && (
+        <div className={`p-4 rounded-md flex items-center gap-3 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-l-4 border-emerald-600 text-emerald-900' : 'bg-rose-50 border-l-4 border-rose-600 text-rose-900'}`}>
+          {statusMsg.type === 'success' ? <CheckCircle2 size={20} className="shrink-0 text-emerald-700" /> : <AlertCircle size={20} className="shrink-0 text-rose-700" />}
+          <p className="text-sm font-semibold">{statusMsg.text}</p>
+        </div>
+      )}
+
+      {/* Main Grid: Form + Existing Examples List */}
+      <div className="grid lg:grid-cols-5 gap-8">
+        {/* Form Column */}
+        <div className="lg:col-span-3 govt-card">
+          <div className="govt-card-header">
+            <h3 className="font-bold text-sm text-slate-900 font-serif flex items-center gap-2">
+              <Plus size={18} className="text-blue-900" />
+              Add New Demo Court Case Order
+            </h3>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Order Type & Case Title */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Order Type / Classification <span className="text-rose-600">*</span>
+                </label>
+                <select
+                  value={orderType}
+                  onChange={(e) => setOrderType(e.target.value)}
+                  className="w-full p-2.5 text-xs font-semibold rounded border border-slate-300 bg-white focus:ring-2 focus:ring-blue-900 outline-none"
+                >
+                  <option value="Interim Maintenance Order">Interim Maintenance Order</option>
+                  <option value="Adjournment Notice Order">Adjournment Notice Order</option>
+                  <option value="Bail Order with Conditions">Bail Order with Conditions</option>
+                  <option value="Injunction Order">Injunction / Stay Order</option>
+                  <option value="Final Judgment Order">Final Judgment Order</option>
+                  <option value="Custom">Custom Order Type</option>
+                </select>
+              </div>
+
+              {orderType === 'Custom' ? (
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Custom Order Title <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Custody Application Order"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    className="w-full p-2.5 text-xs font-semibold rounded border border-slate-300 focus:ring-2 focus:ring-blue-900 outline-none"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    CNR / Case Record Number (16-char)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={16}
+                    placeholder="e.g. DLCT010012342026"
+                    value={cnrNumber}
+                    onChange={(e) => setCnrNumber(e.target.value.toUpperCase())}
+                    className="w-full p-2.5 text-xs font-mono font-semibold rounded border border-slate-300 focus:ring-2 focus:ring-blue-900 outline-none uppercase"
+                  />
+                </div>
+              )}
+            </div>
+
+            {orderType !== 'Custom' && (
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Court & Bench Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Court of Principal Sessions Judge, Delhi"
+                    value={courtName}
+                    onChange={(e) => setCourtName(e.target.value)}
+                    className="w-full p-2.5 text-xs font-semibold rounded border border-slate-300 focus:ring-2 focus:ring-blue-900 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Parties Involved (Comma Separated)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sunita Devi, Ramesh Kumar"
+                    value={parties}
+                    onChange={(e) => setParties(e.target.value)}
+                    className="w-full p-2.5 text-xs font-semibold rounded border border-slate-300 focus:ring-2 focus:ring-blue-900 outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Document Input Mode Switcher */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase text-slate-700">
+                  Court Order Document Input <span className="text-rose-600">*</span>
+                </label>
+                <div className="flex bg-slate-200 p-0.5 rounded text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('text')}
+                    className={`px-3 py-1 font-bold rounded transition-colors ${inputMode === 'text' ? 'bg-blue-900 text-white' : 'text-slate-700 hover:text-slate-900'}`}
+                  >
+                    Paste Text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('file')}
+                    className={`px-3 py-1 font-bold rounded transition-colors ${inputMode === 'file' ? 'bg-blue-900 text-white' : 'text-slate-700 hover:text-slate-900'}`}
+                  >
+                    Upload Document File
+                  </button>
+                </div>
+              </div>
+
+              {inputMode === 'text' ? (
+                <div>
+                  <textarea
+                    rows={6}
+                    required
+                    placeholder="Paste full text of certified court order here..."
+                    value={rawOrderText}
+                    onChange={(e) => setRawOrderText(e.target.value)}
+                    className="w-full p-3 text-xs font-mono rounded border border-slate-300 focus:ring-2 focus:ring-blue-900 outline-none leading-relaxed"
+                  />
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center space-y-3 bg-slate-50">
+                  <FileText size={36} className="mx-auto text-blue-900" />
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.txt,.doc,.docx"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="admin-file-upload"
+                    />
+                    <label
+                      htmlFor="admin-file-upload"
+                      className="inline-block px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded cursor-pointer hover:bg-blue-800 transition-colors"
+                    >
+                      Choose PDF / Document File
+                    </label>
+                  </div>
+                  {selectedFile ? (
+                    <p className="text-xs font-bold text-emerald-800">
+                      Selected File: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">Supports PDF, TXT or DOC files containing court order copy.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Plain Summary Override / Optional pre-computed explanation */}
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                Plain-Language Explanation Summary (Optional Override)
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Optional: Pre-written plain language summary for instant offline display..."
+                value={plainSummary}
+                onChange={(e) => setPlainSummary(e.target.value)}
+                className="w-full p-2.5 text-xs rounded border border-slate-300 focus:ring-2 focus:ring-blue-900 outline-none"
+              />
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs uppercase tracking-wider rounded shadow transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <span>Saving Example to Portal...</span>
+                ) : (
+                  <>
+                    <Plus size={16} />
+                    <span>Save Demo Case to Portal Examples</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Existing Examples List Column */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="govt-card">
+            <div className="govt-card-header flex items-center justify-between">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 font-serif flex items-center gap-1.5">
+                <Landmark size={14} className="text-blue-900" />
+                Active Demo Examples ({examples.length})
+              </h3>
+              <span className="text-[10px] text-slate-500">examples.json</span>
+            </div>
+
+            <div className="p-4 divide-y divide-slate-200 max-h-[600px] overflow-y-auto space-y-3">
+              {examples.length === 0 ? (
+                <p className="text-xs text-slate-500 py-4 text-center">No demo cases currently stored.</p>
+              ) : (
+                examples.map((ex) => (
+                  <div key={ex.id} className="pt-3 first:pt-0 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="inline-block px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-900 rounded border border-amber-300 uppercase">
+                          {ex.badge || 'Demo Case'}
+                        </span>
+                        <h4 className="font-bold text-xs text-slate-900 mt-1 font-serif">{ex.title}</h4>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(ex.id, ex.title)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded hover:bg-rose-50"
+                        title="Delete Demo Case"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
+                    {ex.keyFacts?.cnrNumber && (
+                      <p className="text-[11px] font-mono text-slate-600">
+                        CNR: <strong className="text-slate-900">{ex.keyFacts.cnrNumber}</strong>
+                      </p>
+                    )}
+
+                    <p className="text-[11px] text-slate-600 line-clamp-2 italic">
+                      "{ex.rawOrderText}"
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

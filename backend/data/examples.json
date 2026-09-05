@@ -1,0 +1,131 @@
+[
+  {
+    "id": "sample-maintenance",
+    "title": "Interim Maintenance Order",
+    "badge": "Family Court",
+    "description": "Order directing monthly maintenance payment during divorce proceedings.",
+    "rawOrderText": "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner on or before the 5th day of every calendar month, commencing from 01.01.2026. Matter stands adjourned to 15.03.2026 for compliance.",
+    "keyFacts": {
+      "caseTitle": "Anita Sharma vs. Rahul Sharma",
+      "cnrNumber": "MHBO010001232026",
+      "courtName": "Family Court No. 3, Mumbai",
+      "judgeName": "Hon'ble Justice S. K. Kulkarni",
+      "parties": [
+        "Anita Sharma (Petitioner)",
+        "Rahul Sharma (Respondent)"
+      ],
+      "nextHearingDate": "2026-03-15",
+      "stage": "Interim Maintenance Stage",
+      "orderDate": "2026-01-10"
+    },
+    "changedFromPrevious": {
+      "changed": true,
+      "changes": [
+        "Monthly interim maintenance increased from ₹8,000 to ₹10,000.",
+        "Strict deadline set: Payment must reach petitioner by the 5th of every month."
+      ]
+    },
+    "plainSummary": {
+      "en": "The court has ordered the husband (respondent) to pay an interim monthly maintenance of ₹10,000 to the wife (petitioner) starting January 1, 2026. This money must be deposited directly into her bank account by the 5th of every month to cover living expenses while the case continues. The next court hearing is set for March 15, 2026.",
+      "hi": "अदालत ने पति (प्रतिवादी) को 1 जनवरी 2026 से पत्नी (याचिकाकर्ता) को ₹10,000 का अंतरिम मासिक गुजारा भत्ता देने का आदेश दिया है।"
+    },
+    "clauses": {
+      "en": [
+        {
+          "id": "c1",
+          "originalText": "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner.",
+          "plainText": "The husband (respondent) must pay ₹10,000 every month for basic living expenses.",
+          "pageNumber": 1
+        },
+        {
+          "id": "c2",
+          "originalText": "Said remittance shall be made directly into the bank account of the Petitioner on or before the 5th day of every calendar month, commencing from 01.01.2026.",
+          "plainText": "The money must be transferred to the wife's bank account by the 5th day of each month, starting Jan 1, 2026.",
+          "pageNumber": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "sample-adjournment",
+    "title": "Adjournment Order",
+    "badge": "District Court",
+    "description": "Order postponing hearing due to counsel absence and fixing next trial date.",
+    "rawOrderText": "At the request of learned counsel for the Respondent, who submits that senior counsel is unavailable today due to medical indisposition, the matter stands adjourned to 28.04.2026 for cross-examination of PW-1. Interim order, if any, to continue till the next date of hearing.",
+    "keyFacts": {
+      "caseTitle": "Sunil Kumar vs. Vikas Mehta",
+      "cnrNumber": "DLCT010043212026",
+      "courtName": "District Civil Court, Tis Hazari, Delhi",
+      "judgeName": "Hon'ble Judge A. K. Gupta",
+      "parties": [
+        "Sunil Kumar (Plaintiff)",
+        "Vikas Mehta (Defendant)"
+      ],
+      "nextHearingDate": "2026-04-28",
+      "stage": "Adjournment / Cross Examination",
+      "orderDate": "2026-01-20"
+    },
+    "changedFromPrevious": {
+      "changed": true,
+      "changes": [
+        "Hearing postponed to April 28, 2026 at respondent's request.",
+        "Existing interim protection orders extended until the next hearing date."
+      ]
+    },
+    "plainSummary": {
+      "en": "The court has postponed today's hearing because the respondent's senior lawyer was unwell and could not attend. The case will next be heard on April 28, 2026 for questioning the main witness (PW-1). Any temporary stay or protection orders issued earlier remain active until that date.",
+      "hi": "अदालत ने आज की सुनवाई स्थगित कर दी है क्योंकि प्रतिवादी के वकील अस्वस्थता के कारण उपस्थित नहीं हो सके।"
+    },
+    "clauses": {
+      "en": [
+        {
+          "id": "a1",
+          "originalText": "At the request of learned counsel for the Respondent, who submits that senior counsel is unavailable today due to medical indisposition, the matter stands adjourned to 28.04.2026.",
+          "plainText": "Today's court hearing was postponed to April 28, 2026 because the respondent's lawyer was sick.",
+          "pageNumber": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "sample-bail",
+    "title": "Bail Order with Conditions",
+    "badge": "Sessions Court",
+    "description": "Order granting conditional bail to the accused upon furnishing personal bond.",
+    "rawOrderText": "Applicant shall be released on bail upon executing a personal bond of ₹25,000/- with one solvent surety of like amount. Applicant shall surrender his passport before the Investigating Officer within 48 hours of release and mark attendance at police station every Monday between 10:00 AM and 01:00 PM.",
+    "keyFacts": {
+      "caseTitle": "State of Maharashtra vs. Rajesh Verma",
+      "cnrNumber": "MHCC020045672025",
+      "courtName": "Sessions Court, City Civil Bench, Thane",
+      "judgeName": "Hon'ble Addl. Sessions Judge V. R. Deshmukh",
+      "parties": [
+        "State of Maharashtra (Prosecution)",
+        "Rajesh Verma (Accused/Applicant)"
+      ],
+      "nextHearingDate": "2026-02-28",
+      "stage": "Charge Sheet Verification",
+      "orderDate": "2026-01-18"
+    },
+    "changedFromPrevious": {
+      "changed": true,
+      "changes": [
+        "Bail granted subject to surety bond of ₹25,000.",
+        "Passport surrender ordered within 48 hours."
+      ]
+    },
+    "plainSummary": {
+      "en": "The court has approved bail for the applicant (Rajesh Verma) under specific conditions. He will be released from custody once he submits a security deposit (surety) of ₹25,000. He must surrender his passport, report to the police station every Monday between 10 AM and 1 PM, and cannot contact any witnesses.",
+      "hi": "अदालत ने आवेदक (राजेश वर्मा) को विशेष शर्तों पर जमानत दे दी है।"
+    },
+    "clauses": {
+      "en": [
+        {
+          "id": "b1",
+          "originalText": "Applicant shall be released on bail upon executing a personal bond of ₹25,000/- with one solvent surety of like amount.",
+          "plainText": "The accused can leave jail after signing a bond of ₹25,000 and providing one guarantor who guarantees that amount.",
+          "pageNumber": 1
+        }
+      ]
+    }
+  }
+]

@@ -301,6 +301,119 @@ app.post('/api/explain', async (req, res) => {
   }
 });
 
+// Helper to read/write examples JSON
+const EXAMPLES_FILE_PATH = path.join(__dirname, 'data', 'examples.json');
+
+const getExamplesFromDisk = () => {
+  if (fs.existsSync(EXAMPLES_FILE_PATH)) {
+    try {
+      return JSON.parse(fs.readFileSync(EXAMPLES_FILE_PATH, 'utf8'));
+    } catch (e) {
+      console.error('Failed to parse examples.json', e);
+    }
+  }
+  return [];
+};
+
+const saveExamplesToDisk = (examples) => {
+  const dir = path.dirname(EXAMPLES_FILE_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(EXAMPLES_FILE_PATH, JSON.stringify(examples, null, 2), 'utf8');
+};
+
+// 5. GET /api/examples
+app.get('/api/examples', (req, res) => {
+  const examples = getExamplesFromDisk();
+  res.json(examples);
+});
+
+// 6. POST /api/admin/examples
+app.post('/api/admin/examples', upload.single('file'), (req, res) => {
+  try {
+    const { 
+      title, 
+      badge, 
+      description, 
+      rawOrderText, 
+      cnrNumber, 
+      courtName, 
+      judgeName, 
+      parties,
+      stage,
+      plainSummary,
+      originalTextClause
+    } = req.body;
+
+    if (!title || (!rawOrderText && !req.file)) {
+      return res.status(400).json({ error: 'Title and order text or PDF file are required.' });
+    }
+
+    let extractedText = rawOrderText || '';
+    if (req.file) {
+      // Clean up uploaded temp file
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    }
+
+    const cnr = (cnrNumber && typeof cnrNumber === 'string') ? cnrNumber.trim().toUpperCase() : 'DLCT0100' + Date.now().toString().slice(-8);
+
+    const newExample = {
+      id: 'sample-' + Date.now(),
+      title: title.trim(),
+      badge: badge ? badge.trim() : 'District Court',
+      description: description ? description.trim() : `Sample order for ${title}`,
+      rawOrderText: extractedText.trim() || 'Court Order Text registered.',
+      keyFacts: {
+        caseTitle: `${parties || title}`,
+        cnrNumber: cnr,
+        courtName: courtName ? courtName.trim() : 'District Court',
+        judgeName: judgeName ? judgeName.trim() : 'Hon\'ble Presiding Judge',
+        parties: parties ? parties.split(',').map(p => p.trim()) : ['Petitioner', 'Respondent'],
+        nextHearingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        stage: stage ? stage.trim() : 'Active Stage',
+        orderDate: new Date().toISOString().split('T')[0]
+      },
+      changedFromPrevious: {
+        changed: true,
+        changes: ['Order entered into demonstration system.']
+      },
+      plainSummary: {
+        en: plainSummary ? plainSummary.trim() : `The court has issued an order regarding ${title}. Please refer to the certified copy for details.`
+      },
+      clauses: {
+        en: [
+          {
+            id: 'c1',
+            originalText: originalTextClause || extractedText || 'Original clause text.',
+            plainText: plainSummary || extractedText || 'Plain language explanation.',
+            pageNumber: 1
+          }
+        ]
+      }
+    };
+
+    const examples = getExamplesFromDisk();
+    examples.push(newExample);
+    saveExamplesToDisk(examples);
+
+    console.log(`Saved new example "${newExample.title}" to backend/data/examples.json`);
+    res.json({ success: true, example: newExample, totalExamples: examples.length });
+  } catch (err) {
+    console.error('Failed to save admin example:', err);
+    res.status(500).json({ error: 'Failed to save example.' });
+  }
+});
+
+// 7. DELETE /api/admin/examples/:id
+app.delete('/api/admin/examples/:id', (req, res) => {
+  const { id } = req.params;
+  let examples = getExamplesFromDisk();
+  examples = examples.filter(ex => ex.id !== id);
+  saveExamplesToDisk(examples);
+  res.json({ success: true, totalExamples: examples.length });
+});
+
 app.listen(port, () => {
   console.log(`Backend server running on http://localhost:${port}`);
 });
