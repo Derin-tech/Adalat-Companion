@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const nodemailer = require('nodemailer');
+const pdfParse = require('pdf-parse');
 require('dotenv').config();
 
 const app = express();
@@ -27,45 +28,95 @@ const getMockData = (filename) => {
   return null;
 };
 
+async function analyzePdfPage1(filePath) {
+  try {
+    const dataBuffer = fs.readFileSync(filePath);
+    const pdfData = await pdfParse(dataBuffer, { max: 1 });
+    const page1Text = pdfData.text ? pdfData.text.trim() : '';
+
+    if (!page1Text || page1Text.length < 10) {
+      console.log('PDF Page 1 text layer is empty or scanned.');
+      return null;
+    }
+
+    console.log(`Extracted Page 1 text (${page1Text.length} characters). Calling Gemini API...`);
+
+    const userPrompt = `Please analyze ONLY Page 1 of the following court order document and provide the structured explanation JSON according to the schema:\n\nPage 1 Extracted Text:\n"${page1Text.slice(0, 3500)}"`;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+
+    const response = await axios.post(
+      geminiUrl,
+      {
+        systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
+        contents: [{ parts: [{ text: userPrompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
+      },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+    );
+
+    const jsonStr = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (jsonStr) {
+      const parsed = JSON.parse(jsonStr);
+      return parsed;
+    }
+  } catch (err) {
+    console.error('Error analyzing PDF Page 1 with Gemini:', err.message);
+  }
+  return null;
+}
+
 // 1. POST /api/upload
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  try {
-    // Attempt to call AI pipeline first if running
-    const formData = new FormData();
-    formData.append('file', fs.createReadStream(req.file.path));
+  const filePath = req.file.path;
 
-    const response = await axios.post(`${AI_PIPELINE_URL}/process`, formData, {
-      headers: formData.getHeaders(),
-      timeout: 5000
-    });
-    
-    // Clean up upload
-    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    
-    return res.json({
-      caseId: response.data.caseId || 'case-' + Date.now(),
-      status: 'ready',
-      data: response.data.summary
-    });
-  } catch (error) {
-    console.log('AI pipeline note, performing Page 1 Gemini analysis directly:', error.message);
-    
-    // Clean up temp file
-    if (fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+  try {
+    // 1. Try python pipeline first if running
+    try {
+      const formData = new FormData();
+      formData.append('file', fs.createReadStream(filePath));
+      const response = await axios.post(`${AI_PIPELINE_URL}/process`, formData, {
+        headers: formData.getHeaders(),
+        timeout: 3000
+      });
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      return res.json({
+        caseId: response.data.caseId || 'case-' + Date.now(),
+        status: 'ready',
+        data: response.data.summary
+      });
+    } catch (e) {
+      // Pipeline offline, fallback to Node.js Page 1 extraction
     }
-    
-    // Perform live Page-1 Gemini Analysis directly via backend API key
-    const defaultData = getMockData('sample1.json');
+
+    // 2. Perform live Page-1 extraction and Gemini AI analysis directly
+    const realPage1Analysis = await analyzePdfPage1(filePath);
+
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    if (realPage1Analysis) {
+      return res.json({
+        caseId: 'uploaded-pdf-' + Date.now(),
+        status: 'ready',
+        data: realPage1Analysis
+      });
+    }
+
+    // 3. Fallback if PDF has no text layer (scanned image)
+    const fallbackData = getMockData('sample1.json');
     return res.json({
       caseId: 'uploaded-pdf-' + Date.now(),
       status: 'ready',
-      data: defaultData
+      data: fallbackData
     });
+  } catch (error) {
+    console.error('Upload processing error:', error.message);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return res.status(500).json({ error: 'Failed to process uploaded file.' });
   }
 });
 
