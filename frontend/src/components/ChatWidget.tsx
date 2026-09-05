@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { MessageSquare, X, Send, ShieldCheck, HelpCircle } from 'lucide-react';
+import { MessageSquare, X, Send, HelpCircle } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -80,8 +80,8 @@ export default function ChatWidget() {
           
           {/* Header */}
           <div className="bg-slate-900 text-white px-4 py-3 border-b-4 border-amber-500 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck size={20} className="text-amber-400" />
+            <div className="flex items-center gap-2.5">
+              <img src="/logo.png" alt="Adalat Companion" className="w-7 h-7 object-contain rounded bg-white p-0.5 border border-amber-400" />
               <div>
                 <h3 className="font-bold text-sm font-serif">Citizen Query System</h3>
                 <p className="text-[10px] text-slate-300">अधिकार सहायक | Adalat Companion</p>

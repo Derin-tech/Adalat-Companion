@@ -105,8 +105,8 @@ export default function App() {
             className="flex items-center gap-4 cursor-pointer" 
             onClick={handleReset}
           >
-            <div className="w-12 h-12 rounded-lg bg-white p-2 border-2 border-amber-500 flex items-center justify-center text-slate-900 shadow">
-              <Landmark size={28} className="text-blue-900" />
+            <div className="w-12 h-12 rounded-xl bg-white p-1 border-2 border-amber-500 flex items-center justify-center shadow overflow-hidden shrink-0">
+              <img src="/logo.png" alt="Adalat Companion Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
