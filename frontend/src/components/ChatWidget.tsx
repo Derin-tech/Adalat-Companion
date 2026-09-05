@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { MessageSquare, X, Send, ShieldCheck, HelpCircle } from 'lucide-react';
+import { MessageSquare, X, Send, HelpCircle } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api';
 
