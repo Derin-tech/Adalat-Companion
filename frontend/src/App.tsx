@@ -267,6 +267,13 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
   const [selectedSampleId, setSelectedSampleId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'upload' | 'text' | 'cnr'>('upload');
   const [availableSamples, setAvailableSamples] = useState<SampleOrder[]>(SAMPLE_ORDERS);
+  
+  const [isCaptchaMode, setIsCaptchaMode] = useState(false);
+  const [captchaImage, setCaptchaImage] = useState<string | null>(null);
+  const [lookupId, setLookupId] = useState<string | null>(null);
+  const [captchaText, setCaptchaText] = useState('');
+  const [retryMessage, setRetryMessage] = useState('');
+  const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
     const loadDynamicExamples = async () => {
@@ -344,17 +351,62 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
   const handleCnrSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cnr.trim()) return;
-    setLoading(true);
+    setIsFetching(true);
     setError(null);
+    setRetryMessage('');
     try {
-      await axios.get(`${API_BASE}/lookup/${cnr}`);
-      onSuccess(`case-cnr-${cnr}`);
+      const res = await axios.post(`${API_BASE}/lookup/start`, {
+        registrationNumber: cnr.trim(),
+        caseType: "1",
+        courtCode: "1",
+        stateCode: "1"
+      });
+      if (res.data.fallback) {
+        onSelectSample(SAMPLE_ORDERS[0]);
+      } else {
+        setLookupId(res.data.lookupId);
+        setCaptchaImage(res.data.captchaImage);
+        setIsCaptchaMode(true);
+      }
     } catch (err: any) {
       console.error(err);
       setError('Notice: eCourts API lookup offline. Displaying reference order.');
       onSelectSample(SAMPLE_ORDERS[0]);
     } finally {
-      setLoading(false);
+      setIsFetching(false);
+    }
+  };
+
+  const handleCaptchaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!captchaText.trim() || !lookupId) return;
+    setIsFetching(true);
+    setError(null);
+    setRetryMessage('');
+    try {
+      const res = await axios.post(`${API_BASE}/lookup/${lookupId}/submit`, {
+        captchaText: captchaText.trim()
+      });
+      if (res.data.fallback) {
+         onSelectSample(SAMPLE_ORDERS[0]);
+      } else if (res.data.success) {
+         onSuccess(`case-cnr-${cnr}`, res.data.data);
+      } else if (res.data.retryCaptchaImage) {
+         setCaptchaImage(res.data.retryCaptchaImage);
+         setCaptchaText('');
+         setRetryMessage("That wasn't quite right, let's try again.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (err.response?.status === 404) {
+        setError('Your session expired. Please restart the lookup.');
+        setIsCaptchaMode(false);
+      } else {
+        setError('Notice: eCourts API lookup offline. Displaying reference order.');
+        onSelectSample(SAMPLE_ORDERS[0]);
+      }
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -510,26 +562,68 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
           )}
 
           {activeTab === 'cnr' && (
-            <form onSubmit={handleCnrSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Enter 16-Digit CNR Number</label>
-                <div className="flex gap-2">
+            isCaptchaMode ? (
+              <form onSubmit={handleCaptchaSubmit} className="space-y-4 max-w-sm mx-auto bg-slate-50 p-6 rounded-lg border border-slate-200 shadow-sm text-center">
+                <h3 className="font-bold text-slate-800 font-serif">Security Verification</h3>
+                <p className="text-xs text-slate-500 mb-2">
+                  Having trouble? We never bypass the official verification step — this is the same CAPTCHA the court's own site shows.
+                </p>
+                {retryMessage && <p className="text-sm font-bold text-amber-700 mb-2">{retryMessage}</p>}
+                
+                {captchaImage && (
+                  <div className="flex justify-center mb-4">
+                    <img src={captchaImage} alt="Court CAPTCHA" className="border border-slate-300 rounded shadow-sm bg-white p-1" />
+                  </div>
+                )}
+                
+                <div>
                   <input 
                     type="text" 
-                    value={cnr}
-                    onChange={(e) => setCnr(e.target.value)}
-                    placeholder="e.g. MHBO010001232026"
-                    className="flex-1 px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
+                    value={captchaText}
+                    onChange={(e) => setCaptchaText(e.target.value)}
+                    placeholder="Enter the letters shown above"
+                    className="w-full px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono text-center mb-3"
+                    autoFocus
                   />
                   <button 
                     type="submit"
-                    className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 text-white font-bold text-xs rounded transition-colors"
+                    disabled={!captchaText.trim() || isFetching}
+                    className="w-full px-6 py-2.5 bg-blue-900 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors"
                   >
-                    Search Case Order
+                    {isFetching ? "Verifying..." : "Verify & Submit"}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setIsCaptchaMode(false)}
+                    className="mt-3 text-xs text-slate-500 hover:text-slate-800 underline"
+                  >
+                    Cancel and go back
                   </button>
                 </div>
-              </div>
-            </form>
+              </form>
+            ) : (
+              <form onSubmit={handleCnrSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Enter 16-Digit CNR Number</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={cnr}
+                      onChange={(e) => setCnr(e.target.value)}
+                      placeholder="e.g. MHBO010001232026"
+                      className="flex-1 px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900 font-mono"
+                    />
+                    <button 
+                      type="submit"
+                      disabled={isFetching}
+                      className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs rounded transition-colors"
+                    >
+                      {isFetching ? "Loading..." : "Search Case Order"}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )
           )}
         </div>
       </div>

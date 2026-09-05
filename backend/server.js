@@ -81,6 +81,46 @@ app.get('/api/summary/:caseId', async (req, res) => {
   }
 });
 
+// 3. POST /api/lookup/start (CAPTCHA Relay)
+app.post('/api/lookup/start', async (req, res) => {
+  try {
+    const response = await axios.post(`${AI_PIPELINE_URL}/lookup/start`, req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('AI pipeline lookup/start failed, falling back to mock data:', error.message);
+    const mockData = getMockData('lookup1.json');
+    if (mockData) {
+      // Return a simulated captcha response for frontend fallback
+      res.json({
+        lookupId: 'mock-lookup-123',
+        captchaImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', // tiny transparent png
+        fallback: true
+      });
+    } else {
+      res.status(500).json({ error: 'Mock data not found' });
+    }
+  }
+});
+
+// 3.1 POST /api/lookup/:lookupId/submit
+app.post('/api/lookup/:lookupId/submit', async (req, res) => {
+  try {
+    const response = await axios.post(`${AI_PIPELINE_URL}/lookup/${req.params.lookupId}/submit`, req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('AI pipeline lookup/submit failed, falling back to mock data:', error.message);
+    const mockData = getMockData('lookup1.json');
+    if (error.response?.status === 404) {
+       return res.status(404).json(error.response.data);
+    }
+    if (mockData) {
+      res.json({ success: true, data: mockData, fallback: true });
+    } else {
+      res.status(500).json({ error: 'Mock data not found' });
+    }
+  }
+});
+
 // 4. POST /api/explain
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 
