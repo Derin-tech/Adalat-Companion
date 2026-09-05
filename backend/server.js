@@ -24,7 +24,16 @@ app.use('/api/lawyer-connect', lawyerConnectRouter);
 // Setup multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+const GEMINI_API_KEY_CHAT = process.env.GEMINI_API_KEY_CHAT || '';
+const GEMINI_API_KEY_EXPLAINER = process.env.GEMINI_API_KEY_EXPLAINER || '';
+
+// Startup Validation
+if (!GEMINI_API_KEY_CHAT) {
+  console.warn("WARNING: GEMINI_API_KEY_CHAT is missing. Chatbot feature will be degraded/unavailable.");
+}
+if (!GEMINI_API_KEY_EXPLAINER) {
+  console.warn("WARNING: GEMINI_API_KEY_EXPLAINER is missing. Order explainer and PDF extraction features will be degraded/unavailable.");
+}
 
 const EXPLAIN_SYSTEM_PROMPT = `
 You are a neutral plain-language court order explainer for self-represented litigants and legal-aid users in India.
@@ -70,29 +79,44 @@ const getMockData = (filename) => {
   return null;
 };
 
-async function analyzePdfPage1(filePath) {
+async function analyzePdfFull(filePath) {
   try {
     const dataBuffer = fs.readFileSync(filePath);
+    console.log('[PDF-DEBUG] Point 7a: Read file buffer, byte length:', dataBuffer.length);
     let parseFn = typeof pdfParse === 'function' ? pdfParse : (pdfParse && typeof pdfParse.default === 'function' ? pdfParse.default : null);
 
     if (typeof parseFn !== 'function') {
+      console.error('[PDF-DEBUG] Point 7b: pdfParse is NOT callable. typeof pdfParse:', typeof pdfParse, 'typeof pdfParse.default:', typeof pdfParse?.default);
       console.error('pdfParse is not callable. Check pdf-parse package.');
-      return null;
+      throw new Error('PDF_PARSE_NOT_CALLABLE');
+    }
+    console.log('[PDF-DEBUG] Point 7c: parseFn is callable, about to invoke pdfParse...');
+
+    const pdfData = await parseFn(dataBuffer); // No max limit
+    const fullText = pdfData && pdfData.text ? pdfData.text.trim() : '';
+
+    // [PDF-DEBUG] Point 7d: Extraction result
+    console.log('[PDF-DEBUG] Point 7d: PDF text extraction result — text length:', fullText.length, 'first 200 chars:', JSON.stringify(fullText.substring(0, 200)));
+
+    if (!fullText || fullText.length < 10) {
+      console.log('[PDF-DEBUG] Point 7e: Text too short or empty, throwing NO_TEXT_EXTRACTED');
+      console.log('PDF text layer is empty or scanned image.');
+      throw new Error('NO_TEXT_EXTRACTED');
     }
 
-    const pdfData = await parseFn(dataBuffer, { max: 1 });
-    const page1Text = pdfData && pdfData.text ? pdfData.text.trim() : '';
-
-    if (!page1Text || page1Text.length < 10) {
-      console.log('PDF Page 1 text layer is empty or scanned image.');
-      return null;
+    if (fullText.length > 2000000) {
+      console.warn(`[PDF-DEBUG] Extracted text is ${fullText.length} characters, exceeding the 2M generous warning threshold.`);
+      console.warn(`Extracted text is ${fullText.length} characters, exceeding the 2M generous warning threshold. It may not fit in the context window.`);
     }
 
-    console.log(`Successfully extracted Page 1 text (${page1Text.length} characters). Calling Gemini API...`);
+    console.log(`Successfully extracted PDF text (${fullText.length} characters). Calling Gemini API...`);
 
-    const userPrompt = `Please analyze ONLY Page 1 of the following court order document and provide the structured explanation JSON according to the schema:\n\nPage 1 Extracted Text:\n"${page1Text.slice(0, 3500)}"`;
+    // [PDF-DEBUG] Point 8: About to call Gemini
+    console.log('[PDF-DEBUG] Point 8: About to call Gemini API — GEMINI_API_KEY_EXPLAINER is set:', !!GEMINI_API_KEY_EXPLAINER, 'text length being sent:', fullText.length);
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+    const userPrompt = `Please analyze the following court order document and provide the structured explanation JSON according to the schema:\n\nExtracted Text:\n"${fullText}"`;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
 
     const response = await axios.post(
       geminiUrl,
@@ -105,23 +129,33 @@ async function analyzePdfPage1(filePath) {
     );
 
     const jsonStr = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    // [PDF-DEBUG] Point 9: Gemini API response received
+    console.log('[PDF-DEBUG] Point 9: Gemini API response — status:', response.status, 'has jsonStr:', !!jsonStr, 'preview:', jsonStr ? jsonStr.substring(0, 200) : 'null');
     if (jsonStr) {
       const parsed = JSON.parse(jsonStr);
       return parsed;
     }
   } catch (err) {
-    console.error('Error analyzing PDF Page 1 with Gemini:', err.message);
+    // [PDF-DEBUG] Point 10a: Catch in analyzePdfFull
+    console.error('[PDF-DEBUG] Point 10a: caught in analyzePdfFull catch — message:', err.message, 'stack:', err.stack);
+    console.error('Error analyzing PDF with Gemini:', err.message);
+    throw err;
   }
   return null;
 }
 
 // 1. POST /api/upload
 app.post('/api/upload', upload.single('file'), async (req, res) => {
+  // [PDF-DEBUG] Point 6: Route entered
+  console.log('[PDF-DEBUG] Point 6: /api/upload route entered — req.file:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, path: req.file.path } : 'UNDEFINED/NULL', 'multer middleware: configured (upload.single("file"))');
   if (!req.file) {
+    console.error('[PDF-DEBUG] Point 6b: req.file is falsy, returning 400');
+    console.error('Upload flow: No file uploaded');
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
   const filePath = req.file.path;
+  console.log(`Upload flow: File received successfully at ${filePath}`);
 
   try {
     // 1. Try python pipeline first if running
@@ -139,33 +173,38 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         data: response.data.summary
       });
     } catch (e) {
-      // Pipeline offline, fallback to Node.js Page 1 extraction
+      // Pipeline offline, fallback to Node.js Full PDF extraction
+      console.log('Upload flow: Python pipeline offline, using Node fallback.');
     }
 
-    // 2. Perform live Page-1 extraction and Gemini AI analysis directly
-    const realPage1Analysis = await analyzePdfPage1(filePath);
+    // 2. Perform live Full extraction and Gemini AI analysis directly
+    console.log('Upload flow: Starting PDF text extraction...');
+    const realAnalysis = await analyzePdfFull(filePath);
 
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
-    if (realPage1Analysis) {
+    if (realAnalysis) {
+      console.log('[PDF-DEBUG] Upload flow: analyzePdfFull returned truthy result, sending to client.');
+      console.log('Upload flow: Successfully received Gemini analysis.');
       return res.json({
         caseId: 'uploaded-pdf-' + Date.now(),
         status: 'ready',
-        data: realPage1Analysis
+        data: realAnalysis
       });
     }
-
-    // 3. Fallback if PDF has no text layer (scanned image)
-    const fallbackData = getMockData('sample1.json');
-    return res.json({
-      caseId: 'uploaded-pdf-' + Date.now(),
-      status: 'ready',
-      data: fallbackData
-    });
   } catch (error) {
+    // [PDF-DEBUG] Point 10b: Catch in /api/upload outer try/catch
+    console.error('[PDF-DEBUG] Point 10b: caught in /api/upload outer catch — message:', error.message, 'stack:', error.stack);
     console.error('Upload processing error:', error.message);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    return res.status(500).json({ error: 'Failed to process uploaded file.' });
+    
+    if (error.message === 'NO_TEXT_EXTRACTED') {
+      console.log('[PDF-DEBUG] Point 10c: Returning 400 NO_TEXT_EXTRACTED error to frontend');
+      return res.status(400).json({ error: "We couldn't read this PDF — it may be a scanned image without a text layer. Please try pasting the order text instead." });
+    }
+    
+    console.log('[PDF-DEBUG] Point 10d: Returning 500 generic error to frontend');
+    return res.status(500).json({ error: "The explainer service is temporarily unavailable, please try again." });
   }
 });
 
@@ -552,7 +591,7 @@ app.post('/api/explain', async (req, res) => {
     const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${validCaseNumber || caseNumber || 'Not specified'}\n\nCourt Order Text:\n"${orderText.trim()}"`;
 
     // Call Gemini 3.5 Flash Lite
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
 
     const response = await axios.post(
       geminiUrl,
@@ -594,9 +633,9 @@ app.post('/api/explain', async (req, res) => {
     
     // Attempt fallback model (gemini-1.5-flash) if 2.5 flash was not found
     try {
-      if (error.response?.status === 404 && GEMINI_API_KEY) {
+      if (error.response?.status === 404 && GEMINI_API_KEY_EXPLAINER) {
         console.log('Retrying with gemini-1.5-flash...');
-        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
         const fallbackRes = await axios.post(
           fallbackUrl,
           {
@@ -617,25 +656,8 @@ app.post('/api/explain', async (req, res) => {
       console.error('Fallback Gemini call also failed:', fbError.message);
     }
     
-    // Fallback response if Anthropic API call fails or model unavailable
-    const mockData = getMockData('sample1.json');
-    res.json({
-      whatHappened: mockData?.plainSummary || "The court has issued an order requiring compliance with specified terms.",
-      whatYouNeedToDo: [
-        "Review hearing dates and deposit requirements.",
-        "Keep copies of payment receipts for verification."
-      ],
-      keyDates: [
-        mockData?.keyFacts?.nextHearingDate ? `${mockData.keyFacts.nextHearingDate}: Next court hearing date` : "Date specified in order"
-      ],
-      whereThisStands: mockData?.keyFacts?.stage || "Interim Stage",
-      clauses: mockData?.clauses || [],
-      keyFacts: mockData?.keyFacts || { parties: [], nextHearingDate: null, stage: null },
-      caseNumber: validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null),
-      ecourtsLink: ecourtsLink,
-      fallback: true,
-      errorDetails: error.message
-    });
+    // If we reach here, both primary and fallback API calls failed
+    return res.status(500).json({ error: "The explainer service is temporarily unavailable, please try again." });
   }
 });
 
@@ -658,8 +680,8 @@ app.post('/api/translate', async (req, res) => {
   const targetLangName = langNames[targetLang] || targetLang;
 
   try {
-    if (GEMINI_API_KEY) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+    if (GEMINI_API_KEY_EXPLAINER) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
       const prompt = `Translate the following plain-language legal explanation into clear, accessible ${targetLangName} for a self-represented litigant. Return ONLY the translation without quotes or markdown:\n\n${text}`;
 
       const response = await axios.post(
@@ -872,9 +894,9 @@ app.put('/api/admin/examples/:id/update', async (req, res) => {
 
   // Try to call Gemini to re-explain the new order text
   let geminiResult = null;
-  if (GEMINI_API_KEY) {
+  if (GEMINI_API_KEY_EXPLAINER) {
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
       const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${example.keyFacts?.cnrNumber || 'N/A'}\n\nCourt Order Text:\n"${newOrderText.trim()}"`;
       
       const response = await axios.post(
@@ -1102,7 +1124,7 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_CHAT}`;
     
     // Format history into Gemini's format: array of { role: "user" | "model", parts: [{ text: "..." }] }
     const contents = [];

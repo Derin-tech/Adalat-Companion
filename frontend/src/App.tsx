@@ -431,15 +431,23 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
   };
 
   const handleFileUpload = async (file: File) => {
+    // [PDF-DEBUG] Point 1: File selected/dropped
+    console.log('[PDF-DEBUG] Point 1: File selected/dropped — name:', file.name, 'size:', file.size, 'type:', file.type);
     setLoading(true);
     setError(null);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await axios.post(`${API_BASE}/upload`, formData);
+      // [PDF-DEBUG] Point 2: About to send upload request
+      const uploadUrl = `${API_BASE}/upload`;
+      console.log('[PDF-DEBUG] Point 2: Sending upload request — method: POST, url:', uploadUrl, 'body is FormData:', formData instanceof FormData, 'FormData keys:', [...formData.keys()]);
+      const res = await axios.post(uploadUrl, formData);
+      // [PDF-DEBUG] Point 3: Raw response received
+      console.log('[PDF-DEBUG] Point 3: Response received — status:', res.status, 'raw data:', JSON.stringify(res.data).substring(0, 500));
       onSuccess(res.data.caseId || 'uploaded-pdf', res.data.data);
     } catch (err: any) {
-      console.error(err);
+      // [PDF-DEBUG] Point 4: Caught in handleFileUpload try/catch
+      console.error('[PDF-DEBUG] Point 4: caught in handleFileUpload try/catch — message:', err.message, 'stack:', err.stack, 'response status:', err.response?.status, 'response data:', JSON.stringify(err.response?.data));
       const errMsg = err.response?.data?.error || 'Document upload failed. Please try again.';
       setError(errMsg);
     } finally {

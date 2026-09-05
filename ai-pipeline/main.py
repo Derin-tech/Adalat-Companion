@@ -190,7 +190,7 @@ async def process_document(file: UploadFile = File(...)):
             print("PDF has no extractable text.")
             raise HTTPException(status_code=400, detail="PDF contains no extractable text.")
             
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY_EXPLAINER")
         if not api_key:
             print("GEMINI_API_KEY is not configured.")
             raise HTTPException(status_code=500, detail="Server configuration error: Gemini API key missing.")
