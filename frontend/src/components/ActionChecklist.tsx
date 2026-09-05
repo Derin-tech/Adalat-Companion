@@ -78,7 +78,7 @@ export default function ActionChecklist() {
                   <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
                     item.urgency === 'High' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
                     item.urgency === 'Medium' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
-                    'bg-slate-100 text-slate-700 border border-slate-200'
+                    'bg-stone-50 text-slate-700 border border-slate-200'
                   }`}>
                     {item.urgency} Priority
                   </span>
@@ -92,8 +92,8 @@ export default function ActionChecklist() {
         })}
       </div>
 
-      <div className="mt-4 p-3 rounded bg-blue-50 border border-blue-200 text-xs text-blue-950 flex items-center gap-2">
-        <Info size={16} className="shrink-0 text-blue-900" />
+      <div className="mt-4 p-3 rounded bg-slate-100 border border-blue-200 text-xs text-blue-950 flex items-center gap-2">
+        <Info size={16} className="shrink-0 text-slate-800" />
         <span>For free advocate assistance, contact your District Legal Services Authority (DLSA) or dial Toll-Free <strong>15100</strong>.</span>
       </div>
     </div>

@@ -93,12 +93,12 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 flex justify-end">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-800/50 flex justify-end">
       <div className="w-full max-w-md h-full bg-white text-slate-900 shadow-2xl flex flex-col border-l border-slate-300">
         {/* Drawer Header */}
-        <div className="p-4 border-b border-slate-300 bg-slate-900 text-white flex items-center justify-between">
+        <div className="p-4 border-b border-slate-300 bg-slate-800 text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <BookOpen size={18} className="text-amber-400" />
+            <BookOpen size={18} className="text-amber-600" />
             <div>
               <h2 className="font-bold text-base leading-tight font-serif">Statutory Legal Glossary</h2>
               <p className="text-xs text-slate-300">Official definitions for common court terms</p>
@@ -121,7 +121,7 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search legal terms (e.g. ex parte, bail)..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-700"
             />
           </div>
 
@@ -133,8 +133,8 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-2 py-0.5 text-[11px] rounded font-semibold whitespace-nowrap ${
                   selectedCategory === cat 
-                    ? 'bg-blue-900 text-white' 
-                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                    ? 'bg-slate-700 text-white' 
+                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-stone-50'
                 }`}
               >
                 {cat}
@@ -156,7 +156,7 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
                   <h3 className="font-bold text-blue-950 text-sm font-serif capitalize">
                     {item.term}
                   </h3>
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
+                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-100 text-slate-800 border border-blue-200">
                     {item.category}
                   </span>
                 </div>

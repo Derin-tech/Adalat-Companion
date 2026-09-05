@@ -105,7 +105,7 @@ export default function App() {
             className="flex items-center gap-4 cursor-pointer" 
             onClick={handleReset}
           >
-            <div className="w-12 h-12 rounded-xl bg-white p-1 border-2 border-amber-500 flex items-center justify-center shadow overflow-hidden shrink-0">
+            <div className="w-12 h-12 rounded-lg bg-white p-1 border-2 border-amber-500 flex items-center justify-center text-slate-900 shadow shrink-0 overflow-hidden">
               <img src="/logo.png" alt="Adalat Companion Logo" className="w-full h-full object-contain" />
             </div>
             <div>
@@ -249,8 +249,8 @@ function LoadingWidget() {
   const [step, setStep] = useState(0);
   const steps = [
     "Reading court order text & extracting clauses...",
-    "Connecting to central records database...",
-    "Retrieving plain-language clause definitions...",
+    "Connecting to Gemini 3.6 Flash legal translation model...",
+    "Generating plain-language summary & identifying statutory terms...",
     "Validating CNR & constructing eCourts verification link..."
   ];
 
@@ -264,10 +264,10 @@ function LoadingWidget() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center govt-card p-12 space-y-4">
       <div className="relative w-16 h-16 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full border-4 border-slate-300 border-t-slate-700 animate-spin"></div>
-        <Scale size={28} className="text-slate-700" />
+        <div className="absolute inset-0 rounded-full border-4 border-blue-900/20 border-t-blue-900 animate-spin"></div>
+        <Scale size={28} className="text-blue-900 animate-pulse" />
       </div>
-      <h3 className="text-lg font-bold font-serif text-slate-900">Processing Document Translation...</h3>
+      <h3 className="text-lg font-bold font-serif text-slate-900">Generating Plain-Language Explanation...</h3>
       <p className="text-xs font-semibold text-blue-900 bg-blue-50 px-4 py-1.5 rounded border border-blue-200">
         {steps[step]}
       </p>

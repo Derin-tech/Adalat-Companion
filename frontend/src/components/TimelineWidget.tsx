@@ -29,21 +29,21 @@ export default function TimelineWidget({ keyFacts }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-200">
         <div>
           <h3 className="text-base font-bold font-serif text-slate-900 flex items-center gap-2">
-            <Scale className="text-blue-900" size={18} />
+            <Scale className="text-slate-800" size={18} />
             Official Judicial Case Progression & Schedule
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">{keyFacts.courtName}</p>
         </div>
 
         {nextDateStr && (
-          <div className="flex items-center gap-2 p-2 px-3 rounded bg-blue-50 border border-blue-200 text-blue-950">
-            <Calendar className="text-blue-900 shrink-0" size={16} />
+          <div className="flex items-center gap-2 p-2 px-3 rounded bg-slate-100 border border-blue-200 text-blue-950">
+            <Calendar className="text-slate-800 shrink-0" size={16} />
             <div className="text-xs">
               <span className="block text-[10px] uppercase font-bold text-slate-500">Next Scheduled Hearing</span>
               <span className="font-bold">{nextDateStr}</span>
             </div>
             {daysRemaining !== null && daysRemaining > 0 && (
-              <span className="ml-2 px-2 py-0.5 text-[10px] font-bold bg-blue-900 text-white rounded">
+              <span className="ml-2 px-2 py-0.5 text-[10px] font-bold bg-slate-700 text-white rounded">
                 {daysRemaining} Days Away
               </span>
             )}
@@ -57,7 +57,7 @@ export default function TimelineWidget({ keyFacts }: Props) {
             key={idx}
             className={`p-3 rounded border relative ${
               item.status === 'current'
-                ? 'bg-blue-50 border-blue-900 font-bold'
+                ? 'bg-slate-100 border-slate-700 font-bold'
                 : item.status === 'completed'
                 ? 'bg-slate-50 border-slate-300 text-slate-700'
                 : 'bg-white border-slate-200 text-slate-500'
@@ -65,13 +65,13 @@ export default function TimelineWidget({ keyFacts }: Props) {
           >
             <div className="flex items-center justify-between mb-1">
               <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                item.status === 'current' ? 'bg-blue-900 text-white' :
+                item.status === 'current' ? 'bg-slate-700 text-white' :
                 item.status === 'completed' ? 'bg-emerald-800 text-white' : 'bg-slate-200 text-slate-700'
               }`}>
                 {item.status === 'current' ? 'Active' : item.status === 'completed' ? 'Done' : 'Upcoming'}
               </span>
               {item.status === 'completed' && <CheckCircle2 size={14} className="text-emerald-700" />}
-              {item.status === 'current' && <Clock size={14} className="text-blue-900" />}
+              {item.status === 'current' && <Clock size={14} className="text-slate-800" />}
             </div>
 
             <h4 className="font-bold text-xs mb-0.5 text-slate-900">{item.title}</h4>
