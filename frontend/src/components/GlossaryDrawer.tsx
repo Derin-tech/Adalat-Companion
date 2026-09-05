@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Search, BookOpen, Filter } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Search, Filter, Scale } from 'lucide-react';
 
 export interface GlossaryTerm {
   term: string;
@@ -80,8 +80,35 @@ interface Props {
 export default function GlossaryDrawer({ isOpen, onClose }: Props) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      // Slight delay to allow animation before focusing
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 300);
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   const categories = ['All', 'Procedural', 'Financial', 'Order Type', 'Parties'];
 
@@ -93,48 +120,85 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-800/50 flex justify-end">
-      <div className="w-full max-w-md h-full bg-white text-slate-900 shadow-2xl flex flex-col border-l border-slate-300">
-        {/* Drawer Header */}
-        <div className="p-4 border-b border-slate-300 bg-slate-800 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BookOpen size={18} className="text-amber-600" />
-            <div>
-              <h2 className="font-bold text-base leading-tight font-serif">Statutory Legal Glossary</h2>
-              <p className="text-xs text-slate-300">Official definitions for common court terms</p>
+    <>
+      {/* Backdrop */}
+      <div 
+        className={`fixed inset-0 bg-slate-900/60 z-[100] transition-opacity duration-300 ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Drawer */}
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="glossary-title"
+        className={`fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl z-[101] flex flex-col transform transition-transform duration-300 ease-out sm:rounded-l-2xl border-l border-slate-200 ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex-shrink-0 p-6 border-b border-slate-100 bg-white sm:rounded-tl-2xl">
+          <div className="flex items-start justify-between">
+            <div className="flex gap-3">
+              <div className="mt-1 p-2 bg-blue-50 text-blue-700 rounded-lg">
+                <Scale size={24} />
+              </div>
+              <div>
+                <h2 id="glossary-title" className="text-xl font-bold font-serif text-slate-900">
+                  Statutory Legal Glossary
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Official definitions for common court terms
+                </p>
+              </div>
             </div>
+            <button 
+              onClick={onClose}
+              aria-label="Close glossary"
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              <X size={20} />
+            </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-white"
-          >
-            <X size={18} />
-          </button>
         </div>
 
-        {/* Search & Category Filter */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50 space-y-3">
+        {/* Search & Filters */}
+        <div className="flex-shrink-0 px-6 py-4 bg-slate-50/50 border-b border-slate-100 space-y-4">
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
+              ref={searchInputRef}
               type="text" 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search legal terms (e.g. ex parte, bail)..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-700"
+              className="w-full h-12 pl-10 pr-10 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent placeholder:text-slate-400 shadow-sm transition-all"
             />
+            {search && (
+              <button 
+                onClick={() => setSearch('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                aria-label="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-1 overflow-x-auto pb-1">
-            <Filter size={12} className="text-slate-500 shrink-0 mr-1" />
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <Filter size={14} className="text-slate-400 shrink-0 mr-1" />
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-2 py-0.5 text-[11px] rounded font-semibold whitespace-nowrap ${
+                className={`px-3.5 py-1.5 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
                   selectedCategory === cat 
-                    ? 'bg-slate-700 text-white' 
-                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-stone-50'
+                    ? 'bg-blue-900 text-white shadow-sm' 
+                    : 'bg-white border border-slate-200 text-blue-950 hover:bg-slate-50 hover:border-slate-300'
                 }`}
               >
                 {cat}
@@ -143,35 +207,42 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
           </div>
         </div>
 
-        {/* Term List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Glossary Terms List */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar pb-24">
           {filteredTerms.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-xs">
-              <p>No legal terms found matching "{search}"</p>
+            <div className="text-center py-16 px-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-400 mb-4">
+                <Search size={24} />
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">No terms found</h3>
+              <p className="text-sm text-slate-500">Try searching for another legal term.</p>
             </div>
           ) : (
             filteredTerms.map((item, idx) => (
-              <div key={idx} className="p-3.5 rounded border border-slate-200 bg-slate-50 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-blue-950 text-sm font-serif capitalize">
+              <div 
+                key={idx} 
+                className="p-5 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm transition-all duration-200 group"
+              >
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <h3 className="font-bold text-blue-900 text-lg font-serif capitalize leading-tight">
                     {item.term}
                   </h3>
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-100 text-slate-800 border border-blue-200">
+                  <span className="shrink-0 text-[10px] tracking-wider uppercase font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
                     {item.category}
                   </span>
                 </div>
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-sm text-slate-700 leading-relaxed">
                   {item.definition}
                 </p>
-                <div className="p-2 rounded bg-white border border-slate-200 text-xs italic text-slate-600 font-serif">
-                  <span className="font-sans font-bold not-italic text-slate-500 mr-1">Usage Example:</span>
-                  "{item.example}"
+                <div className="mt-4 p-3.5 rounded-lg bg-slate-50 border border-slate-100 text-sm text-slate-600">
+                  <span className="block font-semibold text-xs text-slate-500 uppercase tracking-wide mb-1">Usage Example</span>
+                  <span className="italic font-serif text-slate-700">"{item.example}"</span>
                 </div>
               </div>
             ))
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
