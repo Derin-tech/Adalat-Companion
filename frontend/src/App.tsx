@@ -25,26 +25,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
-  const [lang, setLang] = useState<SupportedLanguage>('en');
-    const t = (key: string) => UI_TRANSLATIONS[lang]?.[key] || UI_TRANSLATIONS.en[key] || key;
-
-    const [user, setUser] = useState<User | null>(null);
-    const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
-    const [signInError, setSignInError] = useState<string | null>(null);
-    const [isSigningIn, setIsSigningIn] = useState(false);
-
-    useEffect(() => {
-      if (!auth) return;
-      try {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-          setUser(currentUser);
-        });
-        return () => unsubscribe();
-      } catch (e) {
-        console.warn('Firebase onAuthStateChanged error:', e);
-      }
-    }, []);
-
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -76,32 +56,6 @@ export default function App() {
     if (fontSize === 'xlarge') return 'text-lg sm:text-xl';
     return 'text-sm sm:text-base';
   };
-
-  const handleGoogleSignIn = async () => {
-    setSignInError(null);
-    if (!auth || !googleProvider) {
-      setSignInError('Firebase configuration is not set. Please configure VITE_FIREBASE_* credentials in your .env file.');
-      return;
-    }
-    setIsSigningIn(true);
-    try {
-      await signInWithPopup(auth, googleProvider);
-      setIsSignInModalOpen(false);
-    } catch (err: any) {
-      console.error(err);
-      setSignInError(err.message || 'Failed to sign in with Google. Please try again.');
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
-
-  const handleSignOut = () => {
-    if (auth) {
-      signOut(auth).catch(err => console.error(err));
-    }
-    setUser(null);
-  };
-
 
   return (
     <div className={`min-h-screen flex flex-col font-sans bg-slate-100 text-slate-900 ${getFontSizeClass()}`}>
@@ -731,7 +685,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
 }
 
 {/* Official Results & Document View Screen */}
-function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
+function ResultsScreen({ caseId, sample, apiData, onReset }: {
   caseId: string | null;
   sample: SampleOrder | null;
   apiData?: any | null;
@@ -984,7 +938,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
             className="px-3 py-1.5 rounded bg-blue-900 hover:bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
           >
             <ExternalLink size={14} className="text-amber-400" aria-hidden="true" />
-            <span>{t('viewOnECourts')}</span>
+            <span>View Original on eCourts</span>
           </a>
 
           {/* Output Language Selector */}
@@ -1075,7 +1029,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                       className="text-xs font-bold text-blue-900 hover:underline flex items-center gap-1"
                     >
                       <ExternalLink size={12} aria-hidden="true" />
-                      {t('viewOnECourts')}
+                      View Original on eCourts
                     </a>
                   </div>
                 </div>
@@ -1108,8 +1062,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               {data.changedFromPrevious?.changed && (
                 <div className="p-5 rounded border-2 border-amber-400 bg-yellow-100 text-amber-950 space-y-2 shadow-sm">
                   <h4 className="font-bold text-sm flex items-center gap-2 text-slate-950 font-serif">
-                    <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-sans font-bold text-xs rounded">{t('importantUpdateBadge')}</span>
-                    {t('keyUpdatesTitle')}
+                    <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-sans font-bold text-xs rounded">IMPORTANT UPDATE</span>
+                    Important Developments:
                   </h4>
                   <ul className="space-y-1.5 pl-2 text-xs font-bold text-slate-900">
                     {data.changedFromPrevious.changes.map((c: string, i: number) => (
@@ -1125,7 +1079,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               {data.clauses && data.clauses.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-bold text-sm font-serif text-slate-900 flex items-center gap-2">
-                    <span>{t('clauseBreakdownTitle')}</span>
+                    <span>Detailed Clause Breakdown & Source Verification</span>
                   </h3>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
@@ -1148,7 +1102,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
                       {activeClauseId === clause.id && (
                         <div className="mt-3 p-3 rounded bg-slate-100 border border-slate-300 text-xs font-serif italic text-slate-800">
-                          <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">{t('originalLegalText')}</span>
+                          <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">Original Text:</span>
                           "{clause.originalText}"
                         </div>
                       )}
@@ -1186,7 +1140,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase text-blue-900">{t('plainTranslationCol')}</h4>
+                  <h4 className="text-xs font-bold uppercase text-blue-900">Plain-language Explanation</h4>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
                       key={clause.id}
@@ -1201,7 +1155,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase text-amber-800">{t('originalTextCol')}</h4>
+                  <h4 className="text-xs font-bold uppercase text-amber-800">Original Text</h4>
                   {data.clauses?.map((clause: Clause) => (
                     <div 
                       key={clause.id}
@@ -1231,7 +1185,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
         <div className="space-y-4">
           <div className="govt-card">
             <div className="govt-card-header flex items-center justify-between">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">{t('caseParticularsTitle')}</h3>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">Official Case Particulars</h3>
             </div>
             <div className="p-4 space-y-3 text-xs">
               <div>
@@ -1244,7 +1198,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-500 uppercase">{t('courtBenchLabel')}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Court & Bench</span>
                 <span className="font-semibold text-slate-900">{data.keyFacts?.courtName || 'Not Specified'}</span>
               </div>
 
