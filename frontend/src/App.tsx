@@ -775,13 +775,16 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
     if (apiData) {
       setData({
+        ...apiData,
         plainSummary: apiData.whatHappened || apiData.plainSummary || "Court order summary processed.",
         whatYouNeedToDo: apiData.whatYouNeedToDo || [],
         keyDates: apiData.keyDates || [],
         whereThisStands: apiData.whereThisStands || "",
         clauses: apiData.clauses || [],
         keyFacts: apiData.keyFacts || { parties: [], nextHearingDate: null, stage: null },
-        caseNumber: apiData.caseNumber,
+        changedFromPrevious: apiData.changedFromPrevious || { changed: false, changes: [] },
+        legalGlossary: apiData.legalGlossary || [],
+        caseNumber: apiData.caseNumber || apiData.keyFacts?.cnrNumber || '',
         ecourtsLink: apiData.ecourtsLink || (apiData.caseNumber ? `https://services.ecourts.gov.in/ecourtindia_v6/?cnrNumber=${apiData.caseNumber}` : 'https://services.ecourts.gov.in/ecourtindia_v6/'),
         language: lang
       });

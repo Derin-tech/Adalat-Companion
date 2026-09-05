@@ -6,7 +6,10 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const nodemailer = require('nodemailer');
-const pdfParse = require('pdf-parse');
+let pdfParse = require('pdf-parse');
+if (pdfParse && typeof pdfParse !== 'function' && typeof pdfParse.default === 'function') {
+  pdfParse = pdfParse.default;
+}
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +21,43 @@ app.use(express.json());
 
 // Setup multer for file uploads
 const upload = multer({ dest: 'uploads/' });
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+
+const EXPLAIN_SYSTEM_PROMPT = `
+You are a neutral plain-language court order explainer for self-represented litigants and legal-aid users in India.
+Your goal is to explain legal documents clearly without providing legal advice.
+
+STRICT CONSTRAINTS:
+1. Persona: You are a neutral explainer, NOT a legal advisor or advocate.
+2. Output: Respond ONLY with a valid JSON object matching the requested schema.
+3. Restrictions:
+   - NEVER give legal advice or recommend what strategy a user should follow.
+   - NEVER predict legal outcomes or case victory probabilities.
+   - NEVER recommend a course of action.
+   - If an order sentence is ambiguous or unclear, explicitly flag the ambiguity instead of guessing.
+
+REQUIRED JSON OUTPUT SCHEMA:
+{
+  "whatHappened": "Plain language summary of what the court decided in this order.",
+  "whatYouNeedToDo": ["Procedural step 1", "Procedural step 2"],
+  "keyDates": ["YYYY-MM-DD: Description of event/deadline"],
+  "whereThisStands": "Explanation of current case procedural stage.",
+  "clauses": [
+    {
+      "id": "clause-1",
+      "originalText": "Exact sentence or paragraph from original order text",
+      "plainText": "Clear plain language translation",
+      "pageNumber": 1
+    }
+  ],
+  "keyFacts": {
+    "parties": ["Petitioner Name", "Respondent Name"],
+    "nextHearingDate": "YYYY-MM-DD or null",
+    "stage": "Current stage name"
+  }
+}
+`;
 
 // Fallback logic
 const getMockData = (filename) => {
@@ -31,15 +71,22 @@ const getMockData = (filename) => {
 async function analyzePdfPage1(filePath) {
   try {
     const dataBuffer = fs.readFileSync(filePath);
-    const pdfData = await pdfParse(dataBuffer, { max: 1 });
-    const page1Text = pdfData.text ? pdfData.text.trim() : '';
+    let parseFn = typeof pdfParse === 'function' ? pdfParse : (pdfParse && typeof pdfParse.default === 'function' ? pdfParse.default : null);
 
-    if (!page1Text || page1Text.length < 10) {
-      console.log('PDF Page 1 text layer is empty or scanned.');
+    if (typeof parseFn !== 'function') {
+      console.error('pdfParse is not callable. Check pdf-parse package.');
       return null;
     }
 
-    console.log(`Extracted Page 1 text (${page1Text.length} characters). Calling Gemini API...`);
+    const pdfData = await parseFn(dataBuffer, { max: 1 });
+    const page1Text = pdfData && pdfData.text ? pdfData.text.trim() : '';
+
+    if (!page1Text || page1Text.length < 10) {
+      console.log('PDF Page 1 text layer is empty or scanned image.');
+      return null;
+    }
+
+    console.log(`Successfully extracted Page 1 text (${page1Text.length} characters). Calling Gemini API...`);
 
     const userPrompt = `Please analyze ONLY Page 1 of the following court order document and provide the structured explanation JSON according to the schema:\n\nPage 1 Extracted Text:\n"${page1Text.slice(0, 3500)}"`;
 
@@ -474,112 +521,7 @@ function parseEcourtsHtml(html, cnrNumber) {
   return data;
 }
 
-
 // 4. POST /api/explain
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-
-const EXPLAIN_SYSTEM_PROMPT = `
-You are a neutral plain-language court order explainer for self-represented litigants and legal-aid users in India.
-Your goal is to explain legal documents clearly without providing legal advice.
-
-STRICT CONSTRAINTS:
-1. Persona: You are a neutral explainer, NOT a legal advisor or advocate.
-2. Output: Respond ONLY with a valid JSON object matching the requested schema.
-3. Restrictions:
-   - NEVER give legal advice or recommend what strategy a user should follow.
-   - NEVER predict legal outcomes or case victory probabilities.
-   - NEVER recommend a course of action.
-   - If an order sentence is ambiguous or unclear, explicitly flag the ambiguity instead of guessing.
-
-REQUIRED JSON OUTPUT SCHEMA:
-{
-  "whatHappened": "Plain language summary of what the court decided in this order.",
-  "whatYouNeedToDo": ["Procedural step 1", "Procedural step 2"],
-  "keyDates": ["YYYY-MM-DD: Description of event/deadline"],
-  "whereThisStands": "Explanation of current case procedural stage.",
-  "clauses": [
-    {
-      "id": "clause-1",
-      "originalText": "Exact sentence or paragraph from original order text",
-      "plainText": "Clear plain language translation",
-      "pageNumber": 1
-    }
-  ],
-  "keyFacts": {
-    "parties": ["Petitioner Name", "Respondent Name"],
-    "nextHearingDate": "YYYY-MM-DD or null",
-    "stage": "Current stage name"
-  }
-}
-
-FEW-SHOT EXAMPLES:
-
-Example 1:
-Order Text: "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner on or before the 5th day of every calendar month, commencing from 01.01.2026. Matter stands adjourned to 15.03.2026 for compliance."
-Ideal Response:
-{
-  "whatHappened": "The court ordered the respondent (husband) to pay an interim monthly maintenance of ₹10,000 to the petitioner (wife) starting January 1, 2026. This money must be deposited into her bank account by the 5th of every month while the case continues.",
-  "whatYouNeedToDo": [
-    "Deposit ₹10,000 into the petitioner's bank account by the 5th of each calendar month.",
-    "Retain bank payment receipts as proof of compliance for the court."
-  ],
-  "keyDates": [
-    "2026-01-01: Commencement date for interim maintenance payments",
-    "2026-03-15: Next court hearing date for compliance review"
-  ],
-  "whereThisStands": "The case is currently at the Interim Maintenance stage while trial proceedings continue.",
-  "clauses": [
-    {
-      "id": "clause-1",
-      "originalText": "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner.",
-      "plainText": "The respondent must pay ₹10,000 every month for basic living expenses of the petitioner.",
-      "pageNumber": 1
-    },
-    {
-      "id": "clause-2",
-      "originalText": "Matter stands adjourned to 15.03.2026 for compliance.",
-      "plainText": "The next hearing is fixed for March 15, 2026 to check if payments were made.",
-      "pageNumber": 1
-    }
-  ],
-  "keyFacts": {
-    "parties": ["Petitioner", "Respondent"],
-    "nextHearingDate": "2026-03-15",
-    "stage": "Interim Maintenance Stage"
-  }
-}
-
-Example 2:
-Order Text: "Applicant shall be released on bail upon executing a personal bond of ₹25,000/- with one solvent surety. Applicant shall surrender his passport before the Investigating Officer within 48 hours of release and mark attendance at police station every Monday."
-Ideal Response:
-{
-  "whatHappened": "The court granted bail to the applicant subject to conditions: executing a ₹25,000 bond with one guarantor, surrendering passport within 48 hours of release, and signing attendance at the police station every Monday morning.",
-  "whatYouNeedToDo": [
-    "Execute personal bond of ₹25,000 with one solvent guarantor.",
-    "Surrender passport to the Investigating Officer within 48 hours after release.",
-    "Report to local police station every Monday morning."
-  ],
-  "keyDates": [
-    "Within 48 hours of release: Surrender passport to police officer",
-    "Every Monday: Attendance at local police station"
-  ],
-  "whereThisStands": "Bail has been granted conditionally pending trial proceedings.",
-  "clauses": [
-    {
-      "id": "clause-1",
-      "originalText": "Applicant shall be released on bail upon executing a personal bond of ₹25,000/- with one solvent surety.",
-      "plainText": "The applicant can leave jail after signing a bond of ₹25,000 with one financial guarantor.",
-      "pageNumber": 1
-    }
-  ],
-  "keyFacts": {
-    "parties": ["State", "Applicant"],
-    "nextHearingDate": null,
-    "stage": "Conditional Bail Stage"
-  }
-}
-`;
-
 app.post('/api/explain', async (req, res) => {
   const { orderText, caseNumber } = req.body;
 
