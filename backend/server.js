@@ -1035,6 +1035,69 @@ NOTE:
 If the question is casual or doesn't need a legal citation, skip the "RELEVANT LAW" section entirely and just answer simply in 1 to 2 lines. Do not force structure where it's not needed.
 `;
 
+const getOfflineRightsResponse = (message) => {
+  const lower = message.toLowerCase();
+  
+  if (lower.includes('fir') || lower.includes('police') || lower.includes('arrest') || lower.includes('inquiry')) {
+    return `WHAT THIS MEANS:
+When police register a First Information Report (FIR) or call someone for inquiry, citizens have specific statutory safeguards under Indian law. According to the Code of Criminal Procedure (CrPC), police cannot arrest someone without following proper procedures.
+
+RELEVANT LAW:
+Section 41A, Code of Criminal Procedure, 1973 (and Section 35, Bharatiya Nagarik Suraksha Sanhita).
+
+WHAT YOU CAN DO:
+- Request a formal written notice under Section 41A if called for inquiry.
+- Ask to speak with a lawyer before answering questions during questioning.
+- Contact family or legal aid immediately if taken into custody.
+
+NOTE:
+Consult a qualified advocate or call NALSA Helpline 15100 for your specific situation.`;
+  }
+
+  if (lower.includes('bail') || lower.includes('jail') || lower.includes('custody')) {
+    return `WHAT THIS MEANS:
+Bail is a statutory right in bailable offences and a judicial discretion in non-bailable offences. It ensures a person can defend themselves while remaining free before trial conviction. According to Indian criminal jurisprudence, bail is the rule and jail is the exception.
+
+RELEVANT LAW:
+Section 436 and Section 437, Code of Criminal Procedure, 1973.
+
+WHAT YOU CAN DO:
+- Apply for bailable bail at the police station if the offence is bailable.
+- Apply for interim bail or anticipatory bail before the Magistrate or Sessions Court.
+- Provide a solvent surety or personal bond as directed by the judge.
+
+NOTE:
+Consult a qualified advocate or call NALSA Helpline 15100 for your specific situation.`;
+  }
+
+  if (lower.includes('notice') || lower.includes('summons') || lower.includes('court order')) {
+    return `WHAT THIS MEANS:
+A legal notice or court summons is an official communication informing you of legal claims or ordering your appearance in court. Ignoring a summons can lead to ex-parte orders passed against you.
+
+RELEVANT LAW:
+Order V, Code of Civil Procedure, 1908.
+
+WHAT YOU CAN DO:
+- Note the exact date and court room mentioned on the summons copy.
+- Prepare your written reply/statement with a lawyer before the hearing date.
+- File an appearance through an advocate or appear in person on the scheduled date.
+
+NOTE:
+Consult a qualified advocate or call NALSA Helpline 15100 for your specific situation.`;
+  }
+
+  return `WHAT THIS MEANS:
+Adalat Companion helps Indian citizens understand basic statutory legal rights and court procedures in simple, non-intimidating plain language according to the Constitution of India and national statutes.
+
+WHAT YOU CAN DO:
+- Ask specific questions about legal terms, FIRs, bail, court summons, or maintenance.
+- Upload court order documents on the main portal to view clause-by-clause explanations.
+- Contact your District Legal Services Authority (DLSA) for free legal aid if eligible.
+
+NOTE:
+Consult a qualified advocate or call NALSA Helpline 15100 for immediate legal assistance.`;
+};
+
 app.post('/api/chat', async (req, res) => {
   const { message, history } = req.body;
 
@@ -1043,7 +1106,7 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
     
     // Format history into Gemini's format: array of { role: "user" | "model", parts: [{ text: "..." }] }
     const contents = [];
@@ -1089,9 +1152,10 @@ app.post('/api/chat', async (req, res) => {
 
     res.json({ text: responseText });
   } catch (error) {
-    console.error('Chat API failed:', error.response?.data || error.message);
-    // Friendly fallback message
-    res.json({ text: "I'm having trouble right now, please try again or call the NALSA helpline at 15100 for immediate help." });
+    console.error('Chat API note:', error.response?.data?.error?.message || error.message);
+    // Instant structured statutory response if API rate limited or offline
+    const fallbackText = getOfflineRightsResponse(message);
+    res.json({ text: fallbackText });
   }
 });
 
