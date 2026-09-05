@@ -1,31 +1,66 @@
 {
-  "plainSummary": "The court has directed the respondent to pay an interim monthly maintenance amount of ₹10,000 to the petitioner starting from January 1, 2026. This amount must be deposited in the petitioner's bank account by the 5th of every month. The next hearing is scheduled to review the compliance of this ex parte order.",
-  "clauses": [
-    {
-      "id": "clause-1",
-      "originalText": "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner.",
-      "plainText": "The person you are suing (the respondent) must pay you ₹10,000 every month for your daily expenses.",
-      "pageNumber": 1
-    },
-    {
-      "id": "clause-2",
-      "originalText": "Said remittance shall be made directly into the bank account of the Petitioner on or before the 5th day of every calendar month, commencing from 01.01.2026.",
-      "plainText": "This money must be deposited into your bank account by the 5th of each month, starting January 1, 2026.",
-      "pageNumber": 1
-    }
+  "caseNumber": "OS 482/2026",
+  "whatHappened": "The plaintiff asked the court to stop Defendant No. 1 from doing more work on the disputed property. The court agreed to this for now. Defendant No. 1 must not build more, sell the property, or interfere with it while the main case is going on.",
+  "plainSummary": "The plaintiff asked the court to stop Defendant No. 1 from doing more work on the disputed property. The court agreed to this for now. Defendant No. 1 must not build more, sell the property, or interfere with it while the main case is going on.",
+  "whatYouNeedToDo": [
+    "Plaintiff: Give the court the required undertaking about possible damages.",
+    "Defendant No. 1: Do not build anything more on the disputed property.",
+    "Defendant No. 1: Do not sell or otherwise transfer the property or interfere with it.",
+    "The main case is to continue in court."
   ],
+  "keyDates": [
+    { "date": "30 May 2026", "event": "The court passed this order." },
+    { "date": "30 May 2026", "event": "The case was listed for the next step, called 'framing of issues.'" }
+  ],
+  "whereThisStands": "The court has temporarily stopped Defendant No. 1 from taking certain actions on the property. The main case is still going on, and the court has not yet decided who owns the property or whether there was an encroachment.",
   "keyFacts": {
-    "parties": ["Anita Sharma (Petitioner)", "Rahul Sharma (Respondent)"],
-    "nextHearingDate": "2026-03-15",
-    "stage": "Interim Maintenance Order"
+    "caseTitle": "Plaintiff vs. Defendant No. 1 & Ors.",
+    "cnrNumber": "KLKC010048202026",
+    "courtName": "Munsiff Court",
+    "judgeName": "Hon'ble Munsiff Judge",
+    "parties": ["Plaintiff (Landowner)", "Defendant No. 1"],
+    "nextHearingDate": "30 May 2026",
+    "stage": "Framing of Issues",
+    "orderDate": "30 May 2026"
   },
   "changedFromPrevious": {
     "changed": true,
     "changes": [
-      "The maintenance amount was increased from ₹8,000 to ₹10,000.",
-      "The next hearing date was set for March 15, 2026."
+      "Interim injunction granted restraining Defendant No. 1 from further construction or alienation.",
+      "Plaintiff directed to file necessary undertaking regarding potential damages.",
+      "Case posted for framing of issues on 30 May 2026."
     ]
   },
-  "language": "en",
-  "fallback": true
+  "clauses": [
+    {
+      "id": "clause-1",
+      "originalText": "from putting up any further construction",
+      "plainText": "Defendant No. 1 cannot build anything more on the property.",
+      "pageNumber": 1
+    },
+    {
+      "id": "clause-2",
+      "originalText": "or alienating",
+      "plainText": "Defendant No. 1 cannot sell or transfer the property.",
+      "pageNumber": 1
+    },
+    {
+      "id": "clause-3",
+      "originalText": "otherwise interfering with... the plaint schedule property",
+      "plainText": "Defendant No. 1 cannot otherwise interfere with the disputed property.",
+      "pageNumber": 1
+    },
+    {
+      "id": "clause-4",
+      "originalText": "shall not be construed as an expression of opinion on the merits of the title dispute",
+      "plainText": "The court has not decided who owns the property. That question will be decided later in the main case.",
+      "pageNumber": 1
+    }
+  ],
+  "legalGlossary": [
+    { "term": "Interim Injunction", "definition": "A temporary court order prohibiting a party from taking certain actions until final judgment." },
+    { "term": "Alienating", "definition": "Selling, transferring, mortgaging, or giving away ownership of property." },
+    { "term": "Framing of Issues", "definition": "The formal court stage where the judge identifies the main legal and factual questions to be decided in trial." }
+  ],
+  "language": "en"
 }

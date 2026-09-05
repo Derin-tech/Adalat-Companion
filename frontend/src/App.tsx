@@ -423,7 +423,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
       const formData = new FormData();
       formData.append('file', file);
       const res = await axios.post(`${API_BASE}/upload`, formData);
-      onSuccess(res.data.caseId);
+      onSuccess(res.data.caseId || 'uploaded-pdf', res.data.data);
     } catch (err: any) {
       console.error(err);
       const errMsg = err.response?.data?.error || 'Document upload failed. Please try again.';
@@ -1161,6 +1161,37 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Key Dates Section */}
+              {data.keyDates && data.keyDates.length > 0 && (
+                <div className="govt-card p-5 border-l-4 border-l-emerald-600 bg-emerald-50/40 space-y-3">
+                  <h4 className="font-extrabold text-xs sm:text-sm font-serif text-emerald-950 uppercase flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-emerald-700 text-white font-sans font-bold text-xs rounded">KEY DATES</span>
+                    Important Dates & Deadlines:
+                  </h4>
+                  <ul className="space-y-2 text-xs sm:text-sm">
+                    {data.keyDates.map((kd: any, i: number) => (
+                      <li key={i} className="flex items-start gap-2 bg-white p-2.5 rounded border border-emerald-200 shadow-sm">
+                        <span className="font-bold text-emerald-800 shrink-0">🗓️ {typeof kd === 'string' ? 'Date:' : kd.date}:</span>
+                        <span className="text-slate-800">{renderGlossaryText(typeof kd === 'string' ? kd : kd.event)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Where This Stands Section */}
+              {data.whereThisStands && (
+                <div className="govt-card p-5 border-l-4 border-l-blue-900 bg-blue-50/40 space-y-2">
+                  <h4 className="font-extrabold text-xs sm:text-sm font-serif text-blue-950 uppercase flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-blue-900 text-white font-sans font-bold text-xs rounded">STATUS</span>
+                    Where This Stands:
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans font-medium">
+                    {renderGlossaryText(data.whereThisStands)}
+                  </p>
                 </div>
               )}
 
