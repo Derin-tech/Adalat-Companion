@@ -699,6 +699,9 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
   const [viewMode, setViewMode] = useState<ViewMode>('summary');
   const [activeClauseId, setActiveClauseId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [reminderEmail, setReminderEmail] = useState('');
+  const [reminderStatus, setReminderStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [reminderMsg, setReminderMsg] = useState('');
 
   // Clean state reset when target props change
   useEffect(() => {
@@ -792,6 +795,32 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
     navigator.clipboard.writeText(data.plainSummary);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSaveReminder = async () => {
+    if (!reminderEmail || !reminderEmail.includes('@')) {
+      setReminderStatus('error');
+      setReminderMsg('Please enter a valid email address.');
+      return;
+    }
+    setReminderStatus('saving');
+    try {
+      const res = await axios.post(`${API_BASE}/reminders/add`, {
+        email: reminderEmail,
+        cnrNumber: data?.caseNumber || caseId || 'N/A',
+        hearingDate: data?.keyFacts?.nextHearingDate || '',
+        caseTitle: data?.keyFacts?.caseTitle || sample?.title || 'Court Case',
+      });
+      if (res.data?.success) {
+        setReminderStatus('saved');
+        setReminderMsg(res.data.message || 'Reminder saved!');
+      } else {
+        throw new Error('Unexpected response');
+      }
+    } catch (err: any) {
+      setReminderStatus('error');
+      setReminderMsg(err?.response?.data?.error || 'Failed to save reminder.');
+    }
   };
 
   const handlePrint = () => {
@@ -1218,6 +1247,73 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
             </div>
           </div>
 
+<<<<<<< Updated upstream
+=======
+          {/* Email Reminder Card - only when a hearing date exists */}
+          {data.keyFacts?.nextHearingDate && (
+            <div className="govt-card">
+              <div className="govt-card-header">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <PhoneCall size={14} className="text-blue-900" />
+                  Set Hearing Reminder
+                </h3>
+              </div>
+              <div className="p-4 space-y-3">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Get an email reminder before your next hearing on <strong>{data.keyFacts.nextHearingDate}</strong>.
+                </p>
+                {reminderStatus === 'saved' ? (
+                  <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+                    <CheckCircle2 size={14} />
+                    <span className="font-semibold">{reminderMsg}</span>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="email"
+                      placeholder="your.email@example.com"
+                      value={reminderEmail}
+                      onChange={(e) => { setReminderEmail(e.target.value); setReminderStatus('idle'); setReminderMsg(''); }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 bg-white placeholder:text-slate-400"
+                    />
+                    {reminderStatus === 'error' && (
+                      <div className="flex items-center gap-1.5 text-xs text-red-600">
+                        <AlertCircle size={12} />
+                        <span>{reminderMsg}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleSaveReminder}
+                      disabled={reminderStatus === 'saving'}
+                      className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white rounded text-xs font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {reminderStatus === 'saving' ? 'Saving…' : 'Save Reminder'}
+                    </button>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      We'll send a reminder 2 days before the hearing. This is not legal advice.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="govt-card p-4 space-y-2">
+            <h4 className="font-bold text-xs text-slate-900 uppercase flex items-center gap-1.5">
+              <BookOpen size={16} className="text-blue-900" />
+              {t('legalGlossarySearchTitle')}
+            </h4>
+            <p className="text-xs text-slate-600">
+              {t('legalGlossarySearchDesc')}
+            </p>
+            <button
+              onClick={onOpenGlossary}
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-800 transition-colors"
+            >
+              {t('openGlossaryPanelBtn')}
+            </button>
+          </div>
+>>>>>>> Stashed changes
         </div>
       </div>
     </div>
@@ -1328,6 +1424,35 @@ function AdminScreen({ onGoBack }: { onGoBack: () => void }) {
       setStatusMsg({ type: 'success', text: `Demo case deleted.` });
     } catch (err) {
       setStatusMsg({ type: 'error', text: 'Failed to delete example.' });
+    }
+  };
+
+  // --- Update Case State ---
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [updateOrderText, setUpdateOrderText] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateResult, setUpdateResult] = useState<any | null>(null);
+
+  const handleUpdateCase = async (id: string) => {
+    if (!updateOrderText.trim()) {
+      setStatusMsg({ type: 'error', text: 'Please paste the new order text.' });
+      return;
+    }
+    setIsUpdating(true);
+    setUpdateResult(null);
+    try {
+      const res = await axios.put(`${API_BASE}/admin/examples/${id}/update`, {
+        newOrderText: updateOrderText.trim(),
+      });
+      if (res.data?.success) {
+        setUpdateResult(res.data.diff);
+        fetchExamples();
+        setStatusMsg({ type: 'success', text: `Case updated successfully!` });
+      }
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err?.response?.data?.error || 'Failed to update case.' });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -1592,6 +1717,72 @@ function AdminScreen({ onGoBack }: { onGoBack: () => void }) {
                     <p className="text-[11px] text-slate-600 line-clamp-2 italic">
                       "{ex.rawOrderText}"
                     </p>
+
+                    {/* Update Case Button */}
+                    <button
+                      onClick={() => {
+                        if (updatingId === ex.id) {
+                          setUpdatingId(null);
+                          setUpdateOrderText('');
+                          setUpdateResult(null);
+                        } else {
+                          setUpdatingId(ex.id);
+                          setUpdateOrderText('');
+                          setUpdateResult(null);
+                        }
+                      }}
+                      className="mt-1 text-[11px] font-bold text-blue-800 hover:text-blue-600 underline underline-offset-2 transition-colors"
+                    >
+                      {updatingId === ex.id ? '✕ Cancel Update' : '✎ Update Case'}
+                    </button>
+
+                    {/* Expandable Update Form */}
+                    {updatingId === ex.id && (
+                      <div className="mt-2 space-y-2 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        <label className="block text-[10px] font-bold uppercase text-slate-600">
+                          Paste New Order Text
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={updateOrderText}
+                          onChange={(e) => setUpdateOrderText(e.target.value)}
+                          placeholder="Paste the latest court order text here..."
+                          className="w-full p-2 text-xs rounded border border-slate-300 focus:ring-2 focus:ring-blue-900 outline-none resize-y"
+                        />
+                        <button
+                          onClick={() => handleUpdateCase(ex.id)}
+                          disabled={isUpdating}
+                          className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {isUpdating ? 'Analyzing with Gemini…' : '⚡ Re-Analyze & Update'}
+                        </button>
+
+                        {/* Update Result Diff */}
+                        {updateResult && (
+                          <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-1.5">
+                            <h5 className="font-bold text-xs text-emerald-900 flex items-center gap-1">
+                              <CheckCircle2 size={12} /> Case Updated
+                            </h5>
+                            {updateResult.hearingDateChanged && (
+                              <p className="text-[11px] text-slate-700">
+                                📅 Hearing: <span className="line-through text-red-600">{updateResult.oldHearingDate || 'none'}</span>{' '}
+                                → <strong className="text-emerald-700">{updateResult.newHearingDate || 'none'}</strong>
+                                {updateResult.reminderUpdated && <span className="text-amber-700 ml-1">(reminder updated)</span>}
+                              </p>
+                            )}
+                            {updateResult.stageChanged && (
+                              <p className="text-[11px] text-slate-700">
+                                ⚖️ Stage: <span className="line-through text-red-600">{updateResult.oldStage || 'none'}</span>{' '}
+                                → <strong className="text-emerald-700">{updateResult.newStage || 'none'}</strong>
+                              </p>
+                            )}
+                            <p className="text-[10px] text-slate-500">
+                              {updateResult.geminiUsed ? '✓ Re-analyzed with Gemini' : '⚠ Gemini unavailable, raw text updated'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}

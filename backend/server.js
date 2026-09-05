@@ -5,6 +5,8 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
+const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -849,6 +851,155 @@ app.delete('/api/admin/examples/:id', (req, res) => {
   res.json({ success: true, totalExamples: examples.length });
 });
 
+// 7.1 PUT /api/admin/examples/:id/update — Re-run Gemini on new order text, update case
+app.put('/api/admin/examples/:id/update', async (req, res) => {
+  const { id } = req.params;
+  const { newOrderText } = req.body;
+
+  if (!newOrderText || typeof newOrderText !== 'string' || !newOrderText.trim()) {
+    return res.status(400).json({ error: 'New order text is required.' });
+  }
+
+  let examples = getExamplesFromDisk();
+  const exIndex = examples.findIndex(ex => ex.id === id);
+  if (exIndex === -1) {
+    return res.status(404).json({ error: 'Example not found.' });
+  }
+
+  const example = examples[exIndex];
+  const oldHearingDate = example.keyFacts?.nextHearingDate || null;
+  const oldStage = example.keyFacts?.stage || null;
+  const oldTodos = example.whatYouNeedToDo || [];
+
+  // Try to call Gemini to re-explain the new order text
+  let geminiResult = null;
+  if (GEMINI_API_KEY) {
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${example.keyFacts?.cnrNumber || 'N/A'}\n\nCourt Order Text:\n"${newOrderText.trim()}"`;
+      
+      const response = await axios.post(
+        geminiUrl,
+        {
+          systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
+          contents: [{ parts: [{ text: userPrompt }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
+        },
+        { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
+      );
+
+      const responseText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (responseText) {
+        geminiResult = JSON.parse(responseText);
+      }
+    } catch (err) {
+      console.error('Gemini re-explain failed:', err.message);
+    }
+  }
+
+  // Update the example with new data
+  example.rawOrderText = newOrderText.trim();
+
+  if (geminiResult) {
+    // Update keyFacts
+    if (geminiResult.keyFacts) {
+      example.keyFacts = {
+        ...example.keyFacts,
+        nextHearingDate: geminiResult.keyFacts.nextHearingDate || example.keyFacts?.nextHearingDate,
+        stage: geminiResult.keyFacts.stage || example.keyFacts?.stage,
+        parties: geminiResult.keyFacts.parties || example.keyFacts?.parties,
+      };
+    }
+
+    // Update plainSummary
+    if (geminiResult.whatHappened) {
+      if (typeof example.plainSummary === 'object') {
+        example.plainSummary.en = geminiResult.whatHappened;
+      } else {
+        example.plainSummary = { en: geminiResult.whatHappened };
+      }
+    }
+
+    // Update whatYouNeedToDo
+    if (geminiResult.whatYouNeedToDo) {
+      example.whatYouNeedToDo = geminiResult.whatYouNeedToDo;
+    }
+
+    // Update whereThisStands
+    if (geminiResult.whereThisStands) {
+      example.whereThisStands = geminiResult.whereThisStands;
+    }
+
+    // Update clauses
+    if (geminiResult.clauses && geminiResult.clauses.length > 0) {
+      example.clauses = { en: geminiResult.clauses };
+    }
+
+    // Update keyDates
+    if (geminiResult.keyDates) {
+      example.keyDates = geminiResult.keyDates;
+    }
+
+    // changedFromPrevious
+    const changes = [];
+    const newHearingDate = example.keyFacts?.nextHearingDate;
+    const newStage = example.keyFacts?.stage;
+
+    if (oldHearingDate !== newHearingDate) {
+      changes.push(`Next hearing date changed from ${oldHearingDate || 'none'} to ${newHearingDate || 'none'}.`);
+    }
+    if (oldStage !== newStage) {
+      changes.push(`Case stage changed from "${oldStage || 'none'}" to "${newStage || 'none'}".`);
+    }
+    changes.push('Order text updated and re-analyzed.');
+
+    example.changedFromPrevious = { changed: true, changes };
+  } else {
+    // Gemini failed — just update the raw text
+    example.changedFromPrevious = {
+      changed: true,
+      changes: ['Order text updated (Gemini re-analysis unavailable).']
+    };
+  }
+
+  examples[exIndex] = example;
+  saveExamplesToDisk(examples);
+
+  // Cross-update reminders.json if hearing date changed
+  const newHearingDate = example.keyFacts?.nextHearingDate;
+  let reminderUpdated = false;
+  if (oldHearingDate !== newHearingDate && newHearingDate) {
+    const reminders = getRemindersFromDisk();
+    const cnr = example.keyFacts?.cnrNumber;
+    for (const reminder of reminders) {
+      if (reminder.cnrNumber === cnr) {
+        reminder.hearingDate = newHearingDate;
+        reminderUpdated = true;
+      }
+    }
+    if (reminderUpdated) {
+      saveRemindersToDisk(reminders);
+    }
+  }
+
+  console.log(`Updated example "${example.title}" (id: ${id})`);
+
+  res.json({
+    success: true,
+    example,
+    diff: {
+      oldHearingDate,
+      newHearingDate: example.keyFacts?.nextHearingDate || null,
+      oldStage,
+      newStage: example.keyFacts?.stage || null,
+      hearingDateChanged: oldHearingDate !== (example.keyFacts?.nextHearingDate || null),
+      stageChanged: oldStage !== (example.keyFacts?.stage || null),
+      reminderUpdated,
+      geminiUsed: !!geminiResult,
+    }
+  });
+});
+
 // 8. POST /api/chat
 const CHAT_SYSTEM_PROMPT = `You are a rights-awareness assistant for common citizens in India who may know nothing about the legal system. Your job is to help people understand their basic legal rights, what different legal terms mean, and what general actions or procedures typically happen in situations they describe (like an FIR being filed against them, being called for a police inquiry, receiving a legal notice, etc).
 
@@ -939,6 +1090,169 @@ app.post('/api/chat', async (req, res) => {
     // Friendly fallback message
     res.json({ text: "I'm having trouble right now, please try again or call the NALSA helpline at 15100 for immediate help." });
   }
+});
+
+// --- EMAIL REMINDERS LOGIC ---
+
+const REMINDERS_FILE_PATH = path.join(__dirname, 'data', 'reminders.json');
+
+const getRemindersFromDisk = () => {
+  if (fs.existsSync(REMINDERS_FILE_PATH)) {
+    try {
+      return JSON.parse(fs.readFileSync(REMINDERS_FILE_PATH, 'utf8'));
+    } catch (e) {
+      console.error('Failed to parse reminders.json', e);
+    }
+  }
+  return [];
+};
+
+const saveRemindersToDisk = (reminders) => {
+  const dir = path.dirname(REMINDERS_FILE_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(REMINDERS_FILE_PATH, JSON.stringify(reminders, null, 2), 'utf8');
+};
+
+const getEmailTransporter = () => {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    console.warn('GMAIL_USER or GMAIL_PASS is missing in .env');
+    return null;
+  }
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS
+    }
+  });
+};
+
+app.post('/api/reminders/add', (req, res) => {
+  const { email, cnrNumber, hearingDate, caseTitle } = req.body;
+  if (!email || !cnrNumber || !hearingDate) {
+    return res.status(400).json({ error: 'Email, CNR number, and hearing date are required.' });
+  }
+
+  const reminders = getRemindersFromDisk();
+  // Check if reminder already exists
+  const exists = reminders.find(r => r.email === email && r.cnrNumber === cnrNumber && r.hearingDate === hearingDate);
+  if (exists) {
+    return res.json({ success: true, message: 'Reminder already exists.' });
+  }
+
+  reminders.push({
+    id: Date.now().toString(),
+    email,
+    cnrNumber,
+    hearingDate,
+    caseTitle: caseTitle || 'Unknown Case',
+    createdAt: new Date().toISOString()
+  });
+  saveRemindersToDisk(reminders);
+  res.json({ success: true, message: 'Reminder saved successfully.' });
+});
+
+app.post('/api/reminders/send-test', async (req, res) => {
+  const { email, cnrNumber, hearingDate, caseTitle } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required for sending test.' });
+  }
+
+  const transporter = getEmailTransporter();
+  if (!transporter) {
+    return res.status(500).json({ error: 'Email transporter not configured. Check GMAIL_USER/PASS in .env.' });
+  }
+
+  const mailOptions = {
+    from: `"Adalat Companion" <${process.env.GMAIL_USER}>`,
+    to: email,
+    subject: `Test Reminder: Upcoming Court Hearing for ${cnrNumber}`,
+    html: `
+      <h2>Upcoming Court Hearing Reminder</h2>
+      <p>This is a test reminder from Adalat Companion.</p>
+      <ul>
+        <li><strong>Case Title:</strong> ${caseTitle || 'N/A'}</li>
+        <li><strong>CNR Number:</strong> ${cnrNumber}</li>
+        <li><strong>Next Hearing Date:</strong> ${hearingDate}</li>
+      </ul>
+      <p><strong>What to expect:</strong> Please make sure to be present at the court on time and bring any necessary documents.</p>
+      <hr />
+      <p><em>Disclaimer: This email is automatically generated and does not constitute legal advice. Please consult your lawyer for legal matters.</em></p>
+    `
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    res.json({ success: true, messageId: info.messageId });
+  } catch (error) {
+    console.error('Failed to send test email:', error);
+    res.status(500).json({ error: 'Failed to send test email.', details: error.message });
+  }
+});
+
+app.post('/api/reminders/check-now', async (req, res) => {
+  const transporter = getEmailTransporter();
+  if (!transporter) {
+    return res.status(500).json({ error: 'Email transporter not configured.' });
+  }
+
+  const reminders = getRemindersFromDisk();
+  const now = new Date();
+  now.setHours(0, 0, 0, 0); // Reset time to start of day
+
+  let sentCount = 0;
+  const emailsSentTo = [];
+
+  for (const reminder of reminders) {
+    // Parse DD-MM-YYYY or similar
+    // We assume YYYY-MM-DD or DD-MM-YYYY.
+    let hDate;
+    if (reminder.hearingDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
+      const parts = reminder.hearingDate.split('-');
+      hDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    } else {
+      hDate = new Date(reminder.hearingDate);
+    }
+    
+    if (isNaN(hDate)) continue;
+
+    // Calculate diff in days
+    const diffTime = hDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // If hearing is within 2 days (inclusive of today)
+    if (diffDays >= 0 && diffDays <= 2) {
+      const mailOptions = {
+        from: `"Adalat Companion" <${process.env.GMAIL_USER}>`,
+        to: reminder.email,
+        subject: `Reminder: Upcoming Court Hearing in ${diffDays} day(s)`,
+        html: `
+          <h2>Upcoming Court Hearing Reminder</h2>
+          <p>This is a reminder that you have a court hearing coming up in ${diffDays} day(s).</p>
+          <ul>
+            <li><strong>Case Title:</strong> ${reminder.caseTitle}</li>
+            <li><strong>CNR Number:</strong> ${reminder.cnrNumber}</li>
+            <li><strong>Next Hearing Date:</strong> ${reminder.hearingDate}</li>
+          </ul>
+          <p><strong>What to expect:</strong> Please ensure you have your documents ready and arrive at the court premises early.</p>
+          <hr />
+          <p><em>Disclaimer: This is an automated notification, not legal advice. Always consult your lawyer for legal guidance.</em></p>
+        `
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        sentCount++;
+        emailsSentTo.push(reminder.email);
+      } catch (e) {
+        console.error(`Failed to send reminder to ${reminder.email}: `, e);
+      }
+    }
+  }
+
+  res.json({ success: true, sentCount, emailsSentTo });
 });
 
 app.listen(port, () => {
