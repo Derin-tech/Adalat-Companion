@@ -4,6 +4,61 @@
 
 @layer base {
   body {
-    @apply bg-[#f9fafb] text-[#111827] font-sans antialiased;
+    background-color: #f4f6f9;
+    color: #102a43;
+  }
+}
+
+/* Official Government Portal Styling */
+.govt-header {
+  background: #0b1b3d;
+  border-bottom: 4px solid #c69214;
+}
+
+.govt-topbar {
+  background: #061126;
+  border-bottom: 1px solid #1e2e4f;
+}
+
+.govt-card {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.govt-card-header {
+  background: #f0f4f8;
+  border-bottom: 1px solid #d9e2ec;
+  padding: 12px 20px;
+}
+
+.govt-badge {
+  background: #e1ebf5;
+  color: #0b69a3;
+  border: 1px solid #bcccdc;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.govt-btn-primary {
+  background: #035388;
+  color: #ffffff;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.govt-btn-primary:hover {
+  background: #0b1b3d;
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
   }
 }

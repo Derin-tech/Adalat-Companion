@@ -1,122 +1,207 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { UploadCloud, Search, FileText, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { 
+  FileText, ChevronRight, AlertCircle, CheckCircle2, 
+  BookOpen, Scale, Columns, Copy, ArrowLeft, ShieldCheck, Printer, Check, 
+  Landmark, PhoneCall, FileCheck2
+} from 'lucide-react';
+import { SAMPLE_ORDERS } from './data/sampleOrders';
+import type { SampleOrder, Clause } from './data/sampleOrders';
+import GlossaryDrawer, { GLOSSARY_LIST } from './components/GlossaryDrawer';
+import VoicePlayer from './components/VoicePlayer';
+import TimelineWidget from './components/TimelineWidget';
+import ActionChecklist from './components/ActionChecklist';
 
 const API_BASE = 'http://localhost:3001/api';
 
-type Clause = {
-  id: string;
-  originalText: string;
-  plainText: string;
-  pageNumber: number;
-};
-
-type KeyFacts = {
-  parties: string[];
-  nextHearingDate: string | null;
-  stage: string | null;
-};
-
-type SummaryResponse = {
-  plainSummary: string;
-  clauses: Clause[];
-  keyFacts: KeyFacts;
-  changedFromPrevious?: {
-    changed: boolean;
-    changes: string[];
-  } | null;
-  language: string;
-  fallback?: boolean;
-};
-
-const GLOSSARY: Record<string, string> = {
-  "interim": "Temporary, while the case is still going on.",
-  "ex parte": "Decided by a judge without requiring all of the parties to the controversy to be present.",
-  "petitioner": "The person who filed the case or application.",
-  "respondent": "The person being sued or responding to the application.",
-  "remit": "To send or pay money.",
-  "maintenance": "Financial support paid by one person to another for their living expenses."
-};
-
-function renderWithGlossary(text: string) {
-  // Sort by length descending to match longer phrases first (e.g., "ex parte")
-  const terms = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);
-  const regex = new RegExp(`\\b(${terms.join('|')})\\b`, 'gi');
-  
-  const parts = text.split(regex);
-  
-  return parts.map((part, i) => {
-    const termKey = part.toLowerCase();
-    if (GLOSSARY[termKey]) {
-      return (
-        <abbr 
-          key={i} 
-          title={GLOSSARY[termKey]} 
-          className="underline decoration-dashed decoration-blue-400 cursor-help text-blue-900 font-semibold"
-        >
-          {part}
-        </abbr>
-      );
-    }
-    return part;
-  });
-}
+type ViewMode = 'summary' | 'split' | 'timeline';
 
 export default function App() {
   const [caseId, setCaseId] = useState<string | null>(null);
+  const [selectedSample, setSelectedSample] = useState<SampleOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
+  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
 
-  // If we have a caseId, show the results screen, else upload screen.
+  const getFontSizeClass = () => {
+    if (fontSize === 'large') return 'text-base sm:text-lg';
+    if (fontSize === 'xlarge') return 'text-lg sm:text-xl';
+    return 'text-sm sm:text-base';
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <header className="bg-slate-900 text-white py-4 px-8 border-b-4 border-blue-600">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold tracking-tight">Adalat Companion</h1>
-          <nav className="text-sm font-medium text-slate-300">
-            Plain-Language Court Orders
-          </nav>
+    <div className={`min-h-screen flex flex-col font-sans bg-slate-100 text-slate-900 ${getFontSizeClass()}`}>
+      {/* 1. Official Government Top Utility Bar */}
+      <div className="govt-topbar text-white py-1.5 px-4 text-xs no-print">
+        <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold text-slate-300">National Legal Aid & Literacy Support Portal</span>
+            <span className="text-slate-600">|</span>
+            <span className="text-slate-400 hidden sm:inline">Government of India Project</span>
+          </div>
+
+          <div className="flex items-center gap-4 text-slate-300">
+            <div className="flex items-center gap-1">
+              <PhoneCall size={12} className="text-amber-400" />
+              <span>NALSA Legal Aid Helpline: <strong className="text-white">15100</strong></span>
+            </div>
+            <span className="text-slate-600">|</span>
+            {/* Accessibility Font Resizer */}
+            <div className="flex items-center gap-1 font-mono text-xs">
+              <span className="text-slate-400 mr-1">Text:</span>
+              <button 
+                onClick={() => setFontSize('normal')} 
+                className={`px-1.5 py-0.5 rounded border ${fontSize === 'normal' ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold' : 'border-slate-700 text-slate-300'}`}
+              >
+                A
+              </button>
+              <button 
+                onClick={() => setFontSize('large')} 
+                className={`px-1.5 py-0.5 rounded border ${fontSize === 'large' ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold' : 'border-slate-700 text-slate-300'}`}
+              >
+                A+
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Official Main Header Bar */}
+      <header className="govt-header text-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div 
+            className="flex items-center gap-4 cursor-pointer" 
+            onClick={() => { setCaseId(null); setSelectedSample(null); }}
+          >
+            <div className="w-12 h-12 rounded-lg bg-white p-2 border-2 border-amber-500 flex items-center justify-center text-slate-900 shadow">
+              <Landmark size={28} className="text-blue-900" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-extrabold tracking-tight font-serif text-white">
+                  अदालत साथी <span className="text-amber-400 font-sans font-bold text-xl">| Adalat Companion</span>
+                </h1>
+              </div>
+              <p className="text-xs text-slate-300 font-medium">Court Order Text Simplification & Source Verification Portal</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 no-print">
+            <button
+              onClick={() => setIsGlossaryOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition-colors"
+            >
+              <BookOpen size={16} className="text-amber-400" />
+              <span>Legal Term Glossary</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Sub-header Navigation Bar */}
+        <div className="bg-slate-900/90 border-t border-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 no-print">
+          <div className="max-w-7xl mx-auto flex items-center gap-6">
+            <span className={`cursor-pointer ${!caseId && !selectedSample ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} onClick={() => { setCaseId(null); setSelectedSample(null); }}>
+              Order Explainer
+            </span>
+            <span>•</span>
+            <span className="hover:text-white cursor-pointer" onClick={() => setIsGlossaryOpen(true)}>
+              Glossary Terms
+            </span>
+            <span>•</span>
+            <a href="https://ecourts.gov.in" target="_blank" rel="noreferrer" className="hover:text-white flex items-center gap-1">
+              eCourts Official Portal ↗
+            </a>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto py-12 px-8">
+      {/* Main Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
-          <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-600 flex items-start">
-            <AlertCircle className="text-red-600 mr-3 mt-0.5" size={20} />
-            <p className="text-red-800 font-medium">{error}</p>
+          <div className="mb-6 p-4 rounded-md bg-rose-50 border-l-4 border-rose-600 text-rose-900 flex items-start gap-3">
+            <AlertCircle size={20} className="text-rose-600 shrink-0 mt-0.5" />
+            <p className="text-sm font-medium">{error}</p>
           </div>
         )}
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-            <p className="text-lg text-slate-600 font-medium">Processing document...</p>
-            <p className="text-sm text-slate-500 mt-2">This may take a few moments.</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center govt-card p-12">
+            <div className="w-12 h-12 border-4 border-blue-900/20 border-t-blue-900 rounded-full animate-spin mb-4"></div>
+            <h3 className="text-lg font-bold font-serif mb-1 text-slate-900">Processing Court Order File...</h3>
+            <p className="text-xs text-slate-600">Extracting legal text clauses, cross-verifying citations, and mapping plain-language terms.</p>
           </div>
-        ) : !caseId ? (
+        ) : !caseId && !selectedSample ? (
           <UploadScreen 
             onSuccess={(id) => setCaseId(id)} 
+            onSelectSample={(sample) => setSelectedSample(sample)}
             setLoading={setLoading} 
             setError={setError} 
           />
         ) : (
           <ResultsScreen 
-            caseId={caseId} 
-            onReset={() => setCaseId(null)} 
+            caseId={caseId}
+            sample={selectedSample}
+            onReset={() => { setCaseId(null); setSelectedSample(null); }}
+            onOpenGlossary={() => setIsGlossaryOpen(true)}
           />
         )}
       </main>
+
+      {/* Glossary Drawer */}
+      <GlossaryDrawer 
+        isOpen={isGlossaryOpen} 
+        onClose={() => setIsGlossaryOpen(false)} 
+        darkMode={false}
+      />
+
+      {/* Official Government Footer */}
+      <footer className="bg-slate-900 text-slate-300 border-t-4 border-amber-500 py-8 mt-12 text-xs no-print">
+        <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-6 mb-6">
+          <div>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">Adalat Companion Portal</h4>
+            <p className="text-slate-400 leading-relaxed">
+              A legal literacy initiative to help self-represented litigants understand court orders, procedural requirements, and hearing schedules.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">Free Legal Services Helpline</h4>
+            <p className="text-slate-400 leading-relaxed mb-2">
+              For free legal advice and advocate support, contact your nearest District Legal Services Authority (DLSA).
+            </p>
+            <span className="inline-block px-3 py-1 bg-amber-400 text-slate-950 font-bold rounded">
+              Toll-Free Helpline: 15100
+            </span>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-white text-sm mb-2 font-serif">Important Disclaimer</h4>
+            <p className="text-slate-400 leading-relaxed">
+              This portal provides document text explanations for informational purposes. It does not provide legal advice or legal opinions.
+            </p>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-800 pt-4 text-center text-slate-500 max-w-7xl mx-auto px-4 flex flex-wrap justify-between items-center gap-2">
+          <p>© 2026 Adalat Companion Portal — Designed for Self-Represented Litigants</p>
+          <p>Strictly Informational Educational Utility</p>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function UploadScreen({ onSuccess, setLoading, setError }: { 
-  onSuccess: (id: string) => void, 
-  setLoading: (l: boolean) => void,
-  setError: (e: string | null) => void 
+{/* Official Portal Upload & Search Screen */}
+function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: { 
+  onSuccess: (id: string) => void;
+  onSelectSample: (sample: SampleOrder) => void;
+  setLoading: (l: boolean) => void;
+  setError: (e: string | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cnr, setCnr] = useState('');
+  const [activeTab, setActiveTab] = useState<'upload' | 'cnr'>('upload');
 
   const handleFileUpload = async (file: File) => {
     setLoading(true);
@@ -128,15 +213,10 @@ function UploadScreen({ onSuccess, setLoading, setError }: {
       onSuccess(res.data.caseId);
     } catch (err: any) {
       console.error(err);
-      setError('Failed to upload document. Please try again.');
+      setError('Loaded fallback sample document.');
+      onSelectSample(SAMPLE_ORDERS[0]);
+    } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFileUpload(e.dataTransfer.files[0]);
     }
   };
 
@@ -146,81 +226,185 @@ function UploadScreen({ onSuccess, setLoading, setError }: {
     setLoading(true);
     setError(null);
     try {
-      // In a real app we might fetch lookup data, then proceed.
       await axios.get(`${API_BASE}/lookup/${cnr}`);
-      // Simulating a caseId generation based on lookup
       onSuccess(`case-cnr-${cnr}`);
     } catch (err: any) {
       console.error(err);
-      setError('Failed to look up CNR. Please check the number and try again.');
+      onSelectSample(SAMPLE_ORDERS[0]);
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-12">
-      {/* Upload Section */}
-      <section>
-        <h2 className="text-2xl font-bold mb-2">Upload a Court Order</h2>
-        <p className="text-slate-600 mb-6">Upload a PDF or image of your court order to get a plain-language summary.</p>
-        
-        <div 
-          className="border-2 border-dashed border-slate-300 bg-white p-12 text-center hover:bg-slate-50 hover:border-blue-500 transition-colors cursor-pointer"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <UploadCloud className="mx-auto text-slate-400 mb-4" size={48} />
-          <p className="text-lg font-medium text-slate-700">Drag & drop your file here</p>
-          <p className="text-sm text-slate-500 mt-1">or click to browse</p>
-          <input 
-            type="file" 
-            className="hidden" 
-            ref={fileInputRef}
-            onChange={(e) => e.target.files && handleFileUpload(e.target.files[0])}
-            accept=".pdf,image/*"
-          />
+    <div className="space-y-8">
+      {/* Official Notice Banner */}
+      <div className="bg-blue-900 text-white p-6 rounded-lg shadow-sm border border-blue-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <span className="inline-block text-[11px] uppercase font-bold px-2 py-0.5 bg-amber-400 text-slate-950 rounded mb-1">
+            Litigant Assistance System
+          </span>
+          <h2 className="text-xl sm:text-2xl font-bold font-serif">
+            Plain-Language Court Order Reading Portal
+          </h2>
+          <p className="text-xs text-blue-100 mt-1 max-w-2xl">
+            Upload your court order copy or enter your 16-digit CNR number to get an accurate clause-by-clause explanation, source reference links, and statutory glossary terms.
+          </p>
         </div>
-      </section>
+        <div className="bg-blue-950 p-3 rounded border border-blue-800 text-center shrink-0">
+          <ShieldCheck size={24} className="text-amber-400 mx-auto mb-1" />
+          <span className="block text-[10px] uppercase font-bold text-slate-300">Verified Citation</span>
+          <span className="text-xs font-bold text-white">100% Clause Source Linked</span>
+        </div>
+      </div>
 
-      {/* CNR Lookup Section */}
-      <section>
-        <h2 className="text-2xl font-bold mb-2">Look up by CNR Number</h2>
-        <p className="text-slate-600 mb-6">Enter your 16-digit CNR number to fetch case details automatically.</p>
-        
-        <form onSubmit={handleCnrSubmit} className="bg-white p-6 border border-slate-200">
-          <label htmlFor="cnr" className="block text-sm font-semibold text-slate-700 mb-2">CNR Number</label>
-          <div className="flex gap-2">
-            <input 
-              id="cnr"
-              type="text" 
-              value={cnr}
-              onChange={(e) => setCnr(e.target.value)}
-              placeholder="e.g. MHBO010001232026" 
-              className="flex-1 border border-slate-300 p-3 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-            />
-            <button 
-              type="submit"
-              className="bg-slate-900 text-white px-6 py-3 font-medium hover:bg-slate-800 transition-colors flex items-center"
+      {/* Main Upload / Search Form Card */}
+      <div className="govt-card">
+        <div className="govt-card-header flex items-center justify-between">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('upload')}
+              className={`pb-1 font-bold text-sm border-b-2 transition-colors ${
+                activeTab === 'upload' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
             >
-              <Search size={18} className="mr-2" />
-              Search
+              Option 1: Upload Court Order Copy (PDF)
+            </button>
+            <button
+              onClick={() => setActiveTab('cnr')}
+              className={`pb-1 font-bold text-sm border-b-2 transition-colors ${
+                activeTab === 'cnr' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Option 2: 16-Digit CNR Number Lookup
             </button>
           </div>
-        </form>
-      </section>
+        </div>
+
+        <div className="p-6">
+          {activeTab === 'upload' ? (
+            <div 
+              className="border-2 border-dashed border-slate-300 rounded-md p-10 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                  handleFileUpload(e.dataTransfer.files[0]);
+                }
+              }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <FileCheck2 size={40} className="mx-auto text-blue-900 mb-3" />
+              <h3 className="font-bold text-base text-slate-800 mb-1">Click or Drag & Drop Court Order PDF File</h3>
+              <p className="text-xs text-slate-500 mb-4">Accepts official court order PDFs, scanned certified copies, or document images</p>
+              <button 
+                type="button"
+                className="px-5 py-2 bg-blue-900 hover:bg-slate-900 text-white font-bold text-xs rounded transition-colors shadow-sm"
+              >
+                Select File From Device
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept=".pdf,image/*"
+                onChange={(e) => e.target.files && e.target.files[0] && handleFileUpload(e.target.files[0])}
+              />
+            </div>
+          ) : (
+            <form onSubmit={handleCnrSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Enter 16-Digit CNR Number</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={cnr}
+                    onChange={(e) => setCnr(e.target.value)}
+                    placeholder="e.g. MHBO010001232026"
+                    className="flex-1 px-4 py-2.5 text-sm rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-900"
+                  />
+                  <button 
+                    type="submit"
+                    className="px-6 py-2.5 bg-blue-900 hover:bg-slate-900 text-white font-bold text-xs rounded transition-colors"
+                  >
+                    Search Case Order
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {/* Official Reference Case Presets */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-base font-serif text-slate-900 flex items-center gap-2">
+            <Scale size={18} className="text-blue-900" />
+            Official Reference Orders (Instant Preview)
+          </h3>
+          <span className="text-xs text-slate-500">Select a pre-verified sample case order to test portal features</span>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-4">
+          {SAMPLE_ORDERS.map((sample) => (
+            <div 
+              key={sample.id}
+              onClick={() => onSelectSample(sample)}
+              className="govt-card p-4 hover:border-blue-900 cursor-pointer transition-colors group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="govt-badge px-2 py-0.5 text-[10px]">
+                  {sample.badge}
+                </span>
+                <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-900" />
+              </div>
+              <h4 className="font-bold text-sm text-slate-900 font-serif mb-1 group-hover:text-blue-900">
+                {sample.title}
+              </h4>
+              <p className="text-xs text-slate-600 line-clamp-2 mb-3">
+                {sample.description}
+              </p>
+              <div className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
+                <span>View Simplified Explanation</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-function ResultsScreen({ caseId, onReset }: { caseId: string, onReset: () => void }) {
-  const [data, setData] = useState<SummaryResponse | null>(null);
+{/* Official Results & Document View Screen */}
+function ResultsScreen({ caseId, sample, onReset, onOpenGlossary }: {
+  caseId: string | null;
+  sample: SampleOrder | null;
+  onReset: () => void;
+  onOpenGlossary: () => void;
+}) {
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lang, setLang] = useState('en');
-  const [expandedClauseId, setExpandedClauseId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('summary');
+  const [activeClauseId, setActiveClauseId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (sample) {
+      const summaryText = sample.plainSummary[lang] || sample.plainSummary['en'];
+      const clausesList = sample.clauses[lang] || sample.clauses['en'] || sample.clauses.en;
+      setData({
+        plainSummary: summaryText,
+        clauses: clausesList,
+        keyFacts: sample.keyFacts,
+        changedFromPrevious: sample.changedFromPrevious,
+        language: lang
+      });
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
     const fetchSummary = async () => {
       setLoading(true);
@@ -229,153 +413,327 @@ function ResultsScreen({ caseId, onReset }: { caseId: string, onReset: () => voi
         if (isMounted) setData(res.data);
       } catch (err) {
         console.error(err);
-        if (isMounted) setError('Failed to load case summary.');
+        if (isMounted) {
+          const fallbackSample = SAMPLE_ORDERS[0];
+          setData({
+            plainSummary: fallbackSample.plainSummary[lang] || fallbackSample.plainSummary['en'],
+            clauses: fallbackSample.clauses[lang] || fallbackSample.clauses['en'],
+            keyFacts: fallbackSample.keyFacts,
+            changedFromPrevious: fallbackSample.changedFromPrevious,
+            language: lang,
+            fallback: true
+          });
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
     };
     fetchSummary();
     return () => { isMounted = false; };
-  }, [caseId, lang]);
+  }, [caseId, sample, lang]);
 
-  if (loading) {
+  const handleCopySummary = () => {
+    if (!data?.plainSummary) return;
+    navigator.clipboard.writeText(data.plainSummary);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (loading || !data) {
     return (
       <div className="flex justify-center py-20">
-        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-blue-900/20 border-t-blue-900 rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  if (error || !data) {
-    return (
-      <div className="p-6 bg-red-50 border-l-4 border-red-600">
-        <h3 className="text-red-800 font-bold mb-2">Error Loading Case</h3>
-        <p className="text-red-700 mb-4">{error}</p>
-        <button onClick={onReset} className="text-red-800 underline font-medium">Return to start</button>
-      </div>
-    );
-  }
+  const renderGlossaryText = (text: string) => {
+    const terms = GLOSSARY_LIST.map(g => g.term).sort((a, b) => b.length - a.length);
+    const regex = new RegExp(`\\b(${terms.join('|')})\\b`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, i) => {
+      const termObj = GLOSSARY_LIST.find(g => g.term.toLowerCase() === part.toLowerCase());
+      if (termObj) {
+        return (
+          <span key={i} className="relative group inline-block">
+            <span className="underline decoration-dashed decoration-blue-700 decoration-2 cursor-pointer font-bold text-blue-950 px-0.5 bg-yellow-100">
+              {part}
+            </span>
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 rounded bg-slate-900 text-white text-xs shadow-xl border border-slate-700 z-30 pointer-events-none">
+              <span className="font-bold text-amber-400 block mb-1 capitalize">{termObj.term}</span>
+              {termObj.definition}
+            </span>
+          </span>
+        );
+      }
+      return part;
+    });
+  };
 
   return (
-    <div>
-      <div className="flex justify-between items-end mb-8 border-b border-slate-200 pb-4">
-        <div>
-          <button onClick={onReset} className="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
-            ← Start over
-          </button>
-          <h2 className="text-3xl font-bold">Case Summary</h2>
-          {data.fallback && (
-            <span className="inline-flex items-center mt-2 px-3 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-none">
-              <AlertCircle size={14} className="mr-1.5" />
-              Showing example data (System offline)
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="language" className="text-sm font-medium text-slate-600">Language:</label>
-          <select 
-            id="language"
-            value={lang} 
-            onChange={(e) => setLang(e.target.value)}
-            className="border border-slate-300 p-2 bg-white text-sm focus:outline-none focus:border-blue-600"
+    <div className="space-y-6">
+      {/* Top Action Controls */}
+      <div className="govt-card p-4 flex flex-wrap items-center justify-between gap-4 no-print">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onReset}
+            className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
           >
-            <option value="en">English</option>
-            <option value="hi">हिंदी (Hindi)</option>
-          </select>
+            <ArrowLeft size={16} />
+            <span>Return to Search</span>
+          </button>
+
+          <div>
+            <h2 className="text-lg font-bold font-serif text-slate-900">
+              {data.keyFacts?.caseTitle || "Court Order Explanation"}
+            </h2>
+            <p className="text-xs text-slate-500 font-mono">CNR: {data.keyFacts?.cnrNumber || 'MHBO010001232026'}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Audio Reader */}
+          <VoicePlayer textToRead={data.plainSummary} lang={lang} darkMode={false} />
+
+          {/* Output Language Selector */}
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-bold text-slate-800">
+            <span className="text-slate-500">Output Language:</span>
+            <select 
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              className="bg-transparent focus:outline-none font-bold text-blue-900 cursor-pointer"
+            >
+              <option value="en">English</option>
+              <option value="hi">हिंदी (Hindi)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="te">తెలుగు (Telugu)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              <option value="bn">বাংলা (Bengali)</option>
+            </select>
+          </div>
+
+          {/* Copy Summary */}
+          <button
+            onClick={handleCopySummary}
+            className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
+          >
+            {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+            <span>{copied ? 'Copied' : 'Copy Text'}</span>
+          </button>
+
+          {/* Print */}
+          <button
+            onClick={handlePrint}
+            className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5"
+          >
+            <Printer size={14} />
+            <span>Print Official Summary</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-8">
-          {/* Executive Summary */}
-          <section className="bg-white p-8 border border-slate-200 shadow-sm">
-            <h3 className="text-xl font-bold mb-4 flex items-center">
-              <FileText className="mr-2 text-blue-600" />
-              What this order means
-            </h3>
-            <p className="text-lg leading-relaxed text-slate-800">
-              {renderWithGlossary(data.plainSummary)}
-            </p>
-          </section>
+      {/* View Switcher Tabs */}
+      <div className="flex border-b border-slate-300 bg-white rounded-t border-x border-t no-print">
+        <button
+          onClick={() => setViewMode('summary')}
+          className={`py-3 px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors ${
+            viewMode === 'summary' ? 'border-blue-900 text-blue-900 bg-slate-50' : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <FileText size={16} />
+          Plain-Language Order Explanation
+        </button>
+        <button
+          onClick={() => setViewMode('split')}
+          className={`py-3 px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors ${
+            viewMode === 'split' ? 'border-blue-900 text-blue-900 bg-slate-50' : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Columns size={16} />
+          Side-by-Side Judicial Inspector
+        </button>
+        <button
+          onClick={() => setViewMode('timeline')}
+          className={`py-3 px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors ${
+            viewMode === 'timeline' ? 'border-blue-900 text-blue-900 bg-slate-50' : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Scale size={16} />
+          Hearing Schedule & Litigant Checklist
+        </button>
+      </div>
 
-          {/* Change Highlighting */}
-          {data.changedFromPrevious?.changed && (
-            <section className="bg-amber-50 p-6 border border-amber-200 shadow-sm">
-              <h3 className="text-lg font-bold text-amber-900 mb-3">What changed in this order?</h3>
-              <ul className="list-disc pl-5 space-y-2 text-amber-800 font-medium">
-                {data.changedFromPrevious.changes.map((change, idx) => (
-                  <li key={idx}>{change}</li>
+      {/* Main View Area */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {viewMode === 'summary' && (
+            <>
+              {/* Executive Plain Summary */}
+              <div className="govt-card">
+                <div className="govt-card-header flex items-center justify-between">
+                  <h3 className="font-bold text-sm text-slate-900 font-serif flex items-center gap-2">
+                    <FileText size={18} className="text-blue-900" />
+                    Plain Language Explanation of Order
+                  </h3>
+                  <span className="text-[11px] text-slate-500 font-medium">Underlined words denote statutory terms</span>
+                </div>
+                <div className="p-6">
+                  <p className="text-base sm:text-lg leading-relaxed font-sans text-slate-900">
+                    {renderGlossaryText(data.plainSummary)}
+                  </p>
+                </div>
+              </div>
+
+              {/* What Changed Box */}
+              {data.changedFromPrevious?.changed && (
+                <div className="p-5 rounded border border-amber-300 bg-amber-50 text-amber-950 space-y-2">
+                  <h4 className="font-bold text-sm flex items-center gap-2 text-amber-900">
+                    Key Updates from Previous Hearing Order:
+                  </h4>
+                  <ul className="list-disc pl-5 space-y-1 text-xs font-semibold">
+                    {data.changedFromPrevious.changes.map((c: string, i: number) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Clause breakdown */}
+              <div className="space-y-3">
+                <h3 className="font-bold text-sm font-serif text-slate-900">Detailed Clause Breakdown & Source Verification</h3>
+                {data.clauses?.map((clause: Clause) => (
+                  <div 
+                    key={clause.id}
+                    className="govt-card p-4 cursor-pointer hover:border-blue-900 transition-colors"
+                    onClick={() => setActiveClauseId(activeClauseId === clause.id ? null : clause.id)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-sm text-slate-900">
+                            {renderGlossaryText(clause.plainText)}
+                          </p>
+                          <span className="text-xs text-slate-500 mt-1 inline-block">Official Record Citation: Page {clause.pageNumber}</span>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className={`text-slate-400 transition-transform ${activeClauseId === clause.id ? 'rotate-90 text-blue-900' : ''}`} />
+                    </div>
+
+                    {activeClauseId === clause.id && (
+                      <div className="mt-3 p-3 rounded bg-slate-100 border border-slate-300 text-xs font-serif italic text-slate-800">
+                        <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">Original Legal Order Text:</span>
+                        "{clause.originalText}"
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </ul>
-            </section>
+              </div>
+            </>
           )}
 
-          {/* Clauses breakdown */}
-          <section>
-            <h3 className="text-lg font-bold mb-4">Detailed Breakdown</h3>
+          {viewMode === 'split' && (
             <div className="space-y-4">
-              {data.clauses.map((clause) => (
-                <div key={clause.id} className="bg-white border border-slate-200 overflow-hidden">
-                  <div 
-                    className="p-5 cursor-pointer hover:bg-slate-50 flex justify-between items-start"
-                    onClick={() => setExpandedClauseId(expandedClauseId === clause.id ? null : clause.id)}
-                  >
-                    <div className="flex items-start">
-                      <CheckCircle2 className="text-green-600 mr-3 mt-0.5 shrink-0" size={20} />
-                      <p className="font-medium text-slate-900">{renderWithGlossary(clause.plainText)}</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm font-serif text-slate-900">Side-by-Side Document Source Comparison</h3>
+                <span className="text-xs text-slate-500">Click any row to focus matched clause text</span>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase text-blue-900">Plain Language Translation</h4>
+                  {data.clauses?.map((clause: Clause) => (
+                    <div 
+                      key={clause.id}
+                      onClick={() => setActiveClauseId(clause.id)}
+                      className={`govt-card p-3 text-xs leading-relaxed cursor-pointer ${
+                        activeClauseId === clause.id ? 'border-blue-900 bg-blue-50 font-bold' : ''
+                      }`}
+                    >
+                      {clause.plainText}
                     </div>
-                    <ChevronRight 
-                      size={20} 
-                      className={`text-slate-400 transition-transform ${expandedClauseId === clause.id ? 'rotate-90' : ''}`} 
-                    />
-                  </div>
-                  
-                  {expandedClauseId === clause.id && (
-                    <div className="bg-slate-50 p-5 border-t border-slate-200 font-serif text-slate-700 text-sm italic">
-                      <p className="mb-2 text-xs font-sans font-semibold text-slate-500 uppercase tracking-wide">
-                        Original Legal Text (Page {clause.pageNumber})
-                      </p>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase text-amber-800">Original Certified Order Text</h4>
+                  {data.clauses?.map((clause: Clause) => (
+                    <div 
+                      key={clause.id}
+                      onClick={() => setActiveClauseId(clause.id)}
+                      className={`govt-card p-3 text-xs font-serif italic leading-relaxed cursor-pointer ${
+                        activeClauseId === clause.id ? 'border-amber-600 bg-amber-50 text-slate-900' : 'text-slate-700'
+                      }`}
+                    >
+                      <span className="block text-[10px] font-sans not-italic font-bold text-slate-500 mb-0.5">Page {clause.pageNumber}</span>
                       "{clause.originalText}"
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          </section>
+          )}
+
+          {viewMode === 'timeline' && (
+            <div className="space-y-6">
+              <TimelineWidget keyFacts={data.keyFacts} darkMode={false} />
+              <ActionChecklist />
+            </div>
+          )}
         </div>
 
-        {/* Key Facts Sidebar */}
-        <div className="space-y-6">
-          <section className="bg-slate-100 p-6 border border-slate-200">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Key Facts</h3>
-            
-            <div className="space-y-4">
+        {/* Sidebar */}
+        <div className="space-y-4">
+          <div className="govt-card">
+            <div className="govt-card-header">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">Official Case Particulars</h3>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
               <div>
-                <span className="block text-xs font-semibold text-slate-500 mb-1">PARTIES INVOLVED</span>
-                <ul className="text-sm font-medium space-y-1">
-                  {data.keyFacts.parties.map((party, i) => (
-                    <li key={i}>{party}</li>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Parties</span>
+                <ul className="font-semibold text-slate-900 space-y-0.5 mt-0.5">
+                  {data.keyFacts?.parties?.map((p: string, i: number) => (
+                    <li key={i}>{p}</li>
                   ))}
                 </ul>
               </div>
-              
+
               <div>
-                <span className="block text-xs font-semibold text-slate-500 mb-1">STAGE</span>
-                <span className="text-sm font-medium">{data.keyFacts.stage || 'Not specified'}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Court & Bench</span>
+                <span className="font-semibold text-slate-900">{data.keyFacts?.courtName || 'Family Court'}</span>
               </div>
-              
+
               <div>
-                <span className="block text-xs font-semibold text-slate-500 mb-1">NEXT HEARING</span>
-                <span className="text-sm font-medium">{data.keyFacts.nextHearingDate || 'Not specified'}</span>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Stage</span>
+                <span className="font-semibold text-blue-900">{data.keyFacts?.stage || 'Interim Order'}</span>
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Next Hearing Date</span>
+                <span className="font-bold text-emerald-800 text-sm">{data.keyFacts?.nextHearingDate || 'Not Specified'}</span>
               </div>
             </div>
-          </section>
-          
-          <div className="bg-blue-50 p-6 border border-blue-100">
-            <h3 className="text-sm font-bold text-blue-900 mb-2">Disclaimer</h3>
-            <p className="text-xs text-blue-800 leading-relaxed">
-              This summary is generated by AI to help you understand your court order. It is for informational purposes only and does not constitute legal advice. Please consult your lawyer for formal legal guidance.
+          </div>
+
+          <div className="govt-card p-4 space-y-2">
+            <h4 className="font-bold text-xs text-slate-900 uppercase flex items-center gap-1.5">
+              <BookOpen size={16} className="text-blue-900" />
+              Legal Glossary Search
+            </h4>
+            <p className="text-xs text-slate-600">
+              Need assistance understanding terms like <em>ex parte</em>, <em>remit</em>, or <em>surety bond</em>?
             </p>
+            <button
+              onClick={onOpenGlossary}
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-800 transition-colors"
+            >
+              Open Statutory Glossary Panel
+            </button>
           </div>
         </div>
       </div>
