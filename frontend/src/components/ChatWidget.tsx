@@ -3,7 +3,7 @@ import axios from 'axios';
 import { MessageSquare, X, Send, HelpCircle } from 'lucide-react';
 import type { SupportedLanguage } from '../data/translations';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
 
 type Message = {
   text: string;
@@ -131,16 +131,16 @@ export default function ChatWidget({ lang = 'en' }: { lang?: SupportedLanguage }
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-900 text-amber-400 rounded-full shadow-lg hover:bg-blue-800 transition-transform hover:scale-105 flex items-center justify-center border-2 border-amber-500 z-50"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-900 text-amber-400 rounded-full shadow-lg hover:bg-blue-800 transition-transform hover:scale-105 flex items-center justify-center border-2 border-amber-500 z-50"
           aria-label="Open Rights Chat"
         >
-          <MessageSquare size={28} />
+          <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />
         </button>
       )}
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-full max-w-sm sm:max-w-md bg-white rounded-lg shadow-2xl border border-slate-300 flex flex-col overflow-hidden z-50 max-h-[80vh]">
+        <div className="fixed bottom-3 right-3 left-3 sm:left-auto sm:bottom-6 sm:right-6 w-auto sm:w-full sm:max-w-md bg-white rounded-lg shadow-2xl border border-slate-300 flex flex-col overflow-hidden z-50 h-[80vh] max-h-[600px]">
           
           {/* Header */}
           <div className="bg-slate-900 text-white px-4 py-3 border-b-4 border-amber-500 flex items-center justify-between">

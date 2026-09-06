@@ -1,15 +1,10 @@
 {
-  "name": "backend",
+  "name": "adalat-companion",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build --prefix frontend && mkdir -p dist && cp -r frontend/dist/* dist/"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "axios": "^1.20.0",
     "cheerio": "^1.2.0",

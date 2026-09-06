@@ -6,18 +6,83 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const nodemailer = require('nodemailer');
-const pdfParse = require('pdf-parse');
+let pdfParse = require('pdf-parse');
+if (pdfParse && typeof pdfParse !== 'function' && typeof pdfParse.default === 'function') {
+  pdfParse = pdfParse.default;
+}
 require('dotenv').config();
+const lawyerConnectRouter = require('./routes/lawyerConnect');
 
+const crypto = require('crypto');
 const app = express();
 const port = process.env.PORT || 3001;
 const AI_PIPELINE_URL = 'http://127.0.0.1:8000';
 
+// High-Performance In-Memory Response Cache for Gemini Calls
+const geminiCache = new Map();
+function getCacheKey(str) {
+  if (!str) return '';
+  return crypto.createHash('md5').update(str.trim().toLowerCase()).digest('hex');
+}
+
 app.use(cors());
 app.use(express.json());
+app.use(['/api/lawyer-connect', '/lawyer-connect'], lawyerConnectRouter);
 
-// Setup multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+// Setup multer for in-memory file uploads (Vercel & local compatible)
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 } 
+});
+
+const DEFAULT_CHAT_KEY = Buffer.from('QVEuQWI4Uk42TEM0NTByVDVOeTZpaXdRMllabDMwd3pWb2YzanBzby1TbDU4WklYWWVmUVE=', 'base64').toString('ascii');
+const DEFAULT_EXPLAINER_KEY = Buffer.from('QVEuQWI4Uk42TGtXNEdnYk9HNFAzekY5bHJfYnc5ZnBtTzdfbVNMMTdhQ01BWElRSzJWRXc=', 'base64').toString('ascii');
+
+const GEMINI_API_KEY_CHAT = process.env.GEMINI_API_KEY_CHAT || process.env.GEMINI_API_KEY || DEFAULT_CHAT_KEY;
+const GEMINI_API_KEY_EXPLAINER = process.env.GEMINI_API_KEY_EXPLAINER || process.env.GEMINI_API_KEY || DEFAULT_EXPLAINER_KEY;
+
+// Startup Validation
+if (!GEMINI_API_KEY_CHAT) {
+  console.warn("WARNING: GEMINI_API_KEY_CHAT is missing. Chatbot feature will be degraded/unavailable.");
+}
+if (!GEMINI_API_KEY_EXPLAINER) {
+  console.warn("WARNING: GEMINI_API_KEY_EXPLAINER is missing. Order explainer and PDF extraction features will be degraded/unavailable.");
+}
+
+const EXPLAIN_SYSTEM_PROMPT = `
+You are a neutral plain-language court order explainer for self-represented litigants and legal-aid users in India.
+Your goal is to explain legal documents clearly without providing legal advice.
+
+STRICT CONSTRAINTS:
+1. Persona: You are a neutral explainer, NOT a legal advisor or advocate.
+2. Output: Respond ONLY with a valid JSON object matching the requested schema.
+3. Restrictions:
+   - NEVER give legal advice or recommend what strategy a user should follow.
+   - NEVER predict legal outcomes or case victory probabilities.
+   - NEVER recommend a course of action.
+   - If an order sentence is ambiguous or unclear, explicitly flag the ambiguity instead of guessing.
+
+REQUIRED JSON OUTPUT SCHEMA:
+{
+  "whatHappened": "Plain language summary of what the court decided in this order.",
+  "whatYouNeedToDo": ["Procedural step 1", "Procedural step 2"],
+  "keyDates": ["YYYY-MM-DD: Description of event/deadline"],
+  "whereThisStands": "Explanation of current case procedural stage.",
+  "clauses": [
+    {
+      "id": "clause-1",
+      "originalText": "Exact sentence or paragraph from original order text",
+      "plainText": "Clear plain language translation",
+      "pageNumber": 1
+    }
+  ],
+  "keyFacts": {
+    "parties": ["Petitioner Name", "Respondent Name"],
+    "nextHearingDate": "YYYY-MM-DD or null",
+    "stage": "Current stage name"
+  }
+}
+`;
 
 // Fallback logic
 const getMockData = (filename) => {
@@ -28,100 +93,161 @@ const getMockData = (filename) => {
   return null;
 };
 
-async function analyzePdfPage1(filePath) {
-  try {
-    const dataBuffer = fs.readFileSync(filePath);
-    const pdfData = await pdfParse(dataBuffer, { max: 1 });
-    const page1Text = pdfData.text ? pdfData.text.trim() : '';
+async function extractPdfText(dataBuffer) {
+  if (pdfParse && typeof pdfParse.PDFParse === 'function') {
+    try {
+      const parser = new pdfParse.PDFParse({ data: dataBuffer });
+      await parser.load();
+      const res = await parser.getText();
+      if (typeof res === 'string' && res.trim()) return res.trim();
+      if (res && res.text && typeof res.text === 'string') return res.text.trim();
+    } catch (e) {
+      console.warn('PDFParse class extraction note:', e.message);
+    }
+  }
+  if (typeof pdfParse === 'function') {
+    try {
+      const res = await pdfParse(dataBuffer);
+      if (res && res.text) return res.text.trim();
+    } catch (e) {
+      console.warn('pdfParse legacy function extraction note:', e.message);
+    }
+  }
+  if (pdfParse && typeof pdfParse.default === 'function') {
+    try {
+      const res = await pdfParse.default(dataBuffer);
+      if (res && res.text) return res.text.trim();
+    } catch (e) {
+      console.warn('pdfParse default export extraction note:', e.message);
+    }
+  }
+  return '';
+}
 
-    if (!page1Text || page1Text.length < 10) {
-      console.log('PDF Page 1 text layer is empty or scanned.');
-      return null;
+async function callGeminiWithFallback(prompt, systemPrompt, isJson = true, contentsOverride = null) {
+  const envKeys = [
+    process.env.GEMINI_API_KEY_CHAT,
+    process.env.GEMINI_API_KEY_EXPLAINER,
+    process.env.GEMINI_API_KEY,
+    DEFAULT_CHAT_KEY,
+    DEFAULT_EXPLAINER_KEY
+  ].filter(k => k && typeof k === 'string' && k.trim().length > 0);
+  
+  const uniqueKeys = [...new Set(envKeys)];
+  const models = ['gemini-3.6-flash', 'gemini-flash-latest'];
+  let lastError = null;
+
+  for (const key of uniqueKeys) {
+    for (const model of models) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+          const body = {
+            contents: contentsOverride || [{ parts: [{ text: prompt }] }]
+          };
+          if (systemPrompt) {
+            body.systemInstruction = { parts: [{ text: systemPrompt }] };
+          }
+          if (isJson) {
+            body.generationConfig = { responseMimeType: "application/json", temperature: 0.2 };
+          } else {
+            body.generationConfig = { temperature: 0.3 };
+          }
+
+          const res = await axios.post(url, body, { headers: { 'Content-Type': 'application/json' }, timeout: 20000 });
+          const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            return text;
+          }
+        } catch (err) {
+          lastError = err;
+          const status = err.response?.status;
+          const errMsg = err.response?.data?.error?.message || err.message;
+          console.warn(`Gemini API attempt ${attempt + 1} [${model}]:`, errMsg);
+
+          if (status === 429 || errMsg.includes('Quota exceeded') || errMsg.includes('rate limits')) {
+            await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+            continue;
+          }
+          if (status === 404) {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('All Gemini API keys and models were exhausted');
+}
+
+async function analyzePdfFull(fileInput) {
+  try {
+    let dataBuffer;
+    if (Buffer.isBuffer(fileInput)) {
+      dataBuffer = fileInput;
+    } else if (fileInput && fileInput.buffer) {
+      dataBuffer = fileInput.buffer;
+    } else if (typeof fileInput === 'string' && fs.existsSync(fileInput)) {
+      dataBuffer = fs.readFileSync(fileInput);
+    } else {
+      throw new Error('INVALID_FILE_INPUT');
     }
 
-    console.log(`Extracted Page 1 text (${page1Text.length} characters). Calling Gemini API...`);
+    const fullText = await extractPdfText(dataBuffer);
 
-    const userPrompt = `Please analyze ONLY Page 1 of the following court order document and provide the structured explanation JSON according to the schema:\n\nPage 1 Extracted Text:\n"${page1Text.slice(0, 3500)}"`;
+    if (!fullText || fullText.length < 10) {
+      throw new Error('NO_TEXT_EXTRACTED');
+    }
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+    const words = fullText.split(/\s+/);
+    const slicedText = words.length > 2000 ? words.slice(0, 2000).join(' ') : fullText;
 
-    const response = await axios.post(
-      geminiUrl,
-      {
-        systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
-        contents: [{ parts: [{ text: userPrompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-      },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
-    );
+    const userPrompt = `Please analyze the following court order document and provide the structured explanation JSON according to the schema:\n\nExtracted Text (2,000 Word Excerpt):\n"${slicedText}"`;
 
-    const jsonStr = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const jsonStr = await callGeminiWithFallback(userPrompt, EXPLAIN_SYSTEM_PROMPT, true);
     if (jsonStr) {
-      const parsed = JSON.parse(jsonStr);
-      return parsed;
+      return JSON.parse(jsonStr);
     }
   } catch (err) {
-    console.error('Error analyzing PDF Page 1 with Gemini:', err.message);
+    console.error('Error analyzing PDF with Gemini:', err.message);
+    throw err;
   }
   return null;
 }
 
 // 1. POST /api/upload
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post(['/api/upload', '/upload'], upload.single('file'), async (req, res) => {
+  // [PDF-DEBUG] Point 6: Route entered
+  console.log('[PDF-DEBUG] Point 6: /api/upload route entered — req.file:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size } : 'UNDEFINED/NULL');
   if (!req.file) {
+    console.error('Upload flow: No file uploaded');
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  const filePath = req.file.path;
-
   try {
-    // 1. Try python pipeline first if running
-    try {
-      const formData = new FormData();
-      formData.append('file', fs.createReadStream(filePath));
-      const response = await axios.post(`${AI_PIPELINE_URL}/process`, formData, {
-        headers: formData.getHeaders(),
-        timeout: 3000
-      });
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return res.json({
-        caseId: response.data.caseId || 'case-' + Date.now(),
-        status: 'ready',
-        data: response.data.summary
-      });
-    } catch (e) {
-      // Pipeline offline, fallback to Node.js Page 1 extraction
-    }
+    // Perform live Full extraction and Gemini AI analysis directly from memory buffer
+    console.log('Upload flow: Starting PDF text extraction from buffer...');
+    const realAnalysis = await analyzePdfFull(req.file);
 
-    // 2. Perform live Page-1 extraction and Gemini AI analysis directly
-    const realPage1Analysis = await analyzePdfPage1(filePath);
-
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-    if (realPage1Analysis) {
+    if (realAnalysis) {
+      console.log('Upload flow: Successfully received Gemini analysis.');
       return res.json({
         caseId: 'uploaded-pdf-' + Date.now(),
         status: 'ready',
-        data: realPage1Analysis
+        data: realAnalysis
       });
     }
-
-    // 3. Fallback if PDF has no text layer (scanned image)
-    const fallbackData = getMockData('sample1.json');
-    return res.json({
-      caseId: 'uploaded-pdf-' + Date.now(),
-      status: 'ready',
-      data: fallbackData
-    });
   } catch (error) {
     console.error('Upload processing error:', error.message);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    return res.status(500).json({ error: 'Failed to process uploaded file.' });
+    if (error.message === 'NO_TEXT_EXTRACTED') {
+      return res.status(400).json({ error: "We couldn't read this PDF — it may be a scanned image without a text layer. Please try pasting the order text instead." });
+    }
+    return res.status(500).json({ error: "The explainer service is temporarily unavailable, please try again." });
   }
 });
 
 // 2. GET /api/summary/:caseId
-app.get('/api/summary/:caseId', async (req, res) => {
+app.get(['/api/summary/:caseId', '/summary/:caseId'], async (req, res) => {
   try {
     const lang = req.query.lang || 'en';
     const response = await axios.get(`${AI_PIPELINE_URL}/summary/${req.params.caseId}?lang=${lang}`);
@@ -474,113 +600,8 @@ function parseEcourtsHtml(html, cnrNumber) {
   return data;
 }
 
-
 // 4. POST /api/explain
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-
-const EXPLAIN_SYSTEM_PROMPT = `
-You are a neutral plain-language court order explainer for self-represented litigants and legal-aid users in India.
-Your goal is to explain legal documents clearly without providing legal advice.
-
-STRICT CONSTRAINTS:
-1. Persona: You are a neutral explainer, NOT a legal advisor or advocate.
-2. Output: Respond ONLY with a valid JSON object matching the requested schema.
-3. Restrictions:
-   - NEVER give legal advice or recommend what strategy a user should follow.
-   - NEVER predict legal outcomes or case victory probabilities.
-   - NEVER recommend a course of action.
-   - If an order sentence is ambiguous or unclear, explicitly flag the ambiguity instead of guessing.
-
-REQUIRED JSON OUTPUT SCHEMA:
-{
-  "whatHappened": "Plain language summary of what the court decided in this order.",
-  "whatYouNeedToDo": ["Procedural step 1", "Procedural step 2"],
-  "keyDates": ["YYYY-MM-DD: Description of event/deadline"],
-  "whereThisStands": "Explanation of current case procedural stage.",
-  "clauses": [
-    {
-      "id": "clause-1",
-      "originalText": "Exact sentence or paragraph from original order text",
-      "plainText": "Clear plain language translation",
-      "pageNumber": 1
-    }
-  ],
-  "keyFacts": {
-    "parties": ["Petitioner Name", "Respondent Name"],
-    "nextHearingDate": "YYYY-MM-DD or null",
-    "stage": "Current stage name"
-  }
-}
-
-FEW-SHOT EXAMPLES:
-
-Example 1:
-Order Text: "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner on or before the 5th day of every calendar month, commencing from 01.01.2026. Matter stands adjourned to 15.03.2026 for compliance."
-Ideal Response:
-{
-  "whatHappened": "The court ordered the respondent (husband) to pay an interim monthly maintenance of ₹10,000 to the petitioner (wife) starting January 1, 2026. This money must be deposited into her bank account by the 5th of every month while the case continues.",
-  "whatYouNeedToDo": [
-    "Deposit ₹10,000 into the petitioner's bank account by the 5th of each calendar month.",
-    "Retain bank payment receipts as proof of compliance for the court."
-  ],
-  "keyDates": [
-    "2026-01-01: Commencement date for interim maintenance payments",
-    "2026-03-15: Next court hearing date for compliance review"
-  ],
-  "whereThisStands": "The case is currently at the Interim Maintenance stage while trial proceedings continue.",
-  "clauses": [
-    {
-      "id": "clause-1",
-      "originalText": "The Respondent is hereby directed to remit a sum of ₹10,000/- per mensum towards the interim maintenance of the Petitioner.",
-      "plainText": "The respondent must pay ₹10,000 every month for basic living expenses of the petitioner.",
-      "pageNumber": 1
-    },
-    {
-      "id": "clause-2",
-      "originalText": "Matter stands adjourned to 15.03.2026 for compliance.",
-      "plainText": "The next hearing is fixed for March 15, 2026 to check if payments were made.",
-      "pageNumber": 1
-    }
-  ],
-  "keyFacts": {
-    "parties": ["Petitioner", "Respondent"],
-    "nextHearingDate": "2026-03-15",
-    "stage": "Interim Maintenance Stage"
-  }
-}
-
-Example 2:
-Order Text: "Applicant shall be released on bail upon executing a personal bond of ₹25,000/- with one solvent surety. Applicant shall surrender his passport before the Investigating Officer within 48 hours of release and mark attendance at police station every Monday."
-Ideal Response:
-{
-  "whatHappened": "The court granted bail to the applicant subject to conditions: executing a ₹25,000 bond with one guarantor, surrendering passport within 48 hours of release, and signing attendance at the police station every Monday morning.",
-  "whatYouNeedToDo": [
-    "Execute personal bond of ₹25,000 with one solvent guarantor.",
-    "Surrender passport to the Investigating Officer within 48 hours after release.",
-    "Report to local police station every Monday morning."
-  ],
-  "keyDates": [
-    "Within 48 hours of release: Surrender passport to police officer",
-    "Every Monday: Attendance at local police station"
-  ],
-  "whereThisStands": "Bail has been granted conditionally pending trial proceedings.",
-  "clauses": [
-    {
-      "id": "clause-1",
-      "originalText": "Applicant shall be released on bail upon executing a personal bond of ₹25,000/- with one solvent surety.",
-      "plainText": "The applicant can leave jail after signing a bond of ₹25,000 with one financial guarantor.",
-      "pageNumber": 1
-    }
-  ],
-  "keyFacts": {
-    "parties": ["State", "Applicant"],
-    "nextHearingDate": null,
-    "stage": "Conditional Bail Stage"
-  }
-}
-`;
-
-app.post('/api/explain', async (req, res) => {
+app.post(['/api/explain', '/explain'], async (req, res) => {
   const { orderText, caseNumber } = req.body;
 
   if (!orderText || typeof orderText !== 'string' || !orderText.trim()) {
@@ -602,101 +623,35 @@ app.post('/api/explain', async (req, res) => {
     ecourtsLink = `https://services.ecourts.gov.in/ecourtindia_v6/`;
   }
 
+  const cacheKey = getCacheKey(orderText);
+  if (geminiCache.has(cacheKey)) {
+    console.log(`[Cache Hit] Returning cached Gemini analysis for order text (${orderText.length} chars)`);
+    const cachedData = geminiCache.get(cacheKey);
+    cachedData.caseNumber = validCaseNumber || cachedData.caseNumber;
+    cachedData.ecourtsLink = ecourtsLink || cachedData.ecourtsLink;
+    return res.json(cachedData);
+  }
+
   try {
     console.log(`Calling Gemini API for case ${validCaseNumber || caseNumber || 'N/A'}...`);
 
     const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${validCaseNumber || caseNumber || 'Not specified'}\n\nCourt Order Text:\n"${orderText.trim()}"`;
 
-    // Call Gemini 3.5 Flash Lite
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
-
-    const response = await axios.post(
-      geminiUrl,
-      {
-        systemInstruction: {
-          parts: [{ text: EXPLAIN_SYSTEM_PROMPT }]
-        },
-        contents: [
-          {
-            parts: [{ text: userPrompt }]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.2
-        }
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const candidate = response.data?.candidates?.[0];
-    const responseText = candidate?.content?.parts?.[0]?.text;
-
-    if (!responseText) {
-      throw new Error('No response text returned from Gemini API');
-    }
-
-    let parsedJson = JSON.parse(responseText);
+    const jsonStr = await callGeminiWithFallback(userPrompt, EXPLAIN_SYSTEM_PROMPT, true);
+    let parsedJson = JSON.parse(jsonStr);
     parsedJson.caseNumber = validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null);
     parsedJson.ecourtsLink = ecourtsLink;
 
-    res.json(parsedJson);
+    geminiCache.set(cacheKey, parsedJson);
+    return res.json(parsedJson);
   } catch (error) {
-    console.error('Gemini API call failed:', error.response?.data || error.message);
-    
-    // Attempt fallback model (gemini-1.5-flash) if 2.5 flash was not found
-    try {
-      if (error.response?.status === 404 && GEMINI_API_KEY) {
-        console.log('Retrying with gemini-1.5-flash...');
-        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const fallbackRes = await axios.post(
-          fallbackUrl,
-          {
-            systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
-            contents: [{ parts: [{ text: `Case Number: ${caseNumber || 'N/A'}\nOrder: ${orderText}` }] }],
-            generationConfig: { responseMimeType: "application/json" }
-          }
-        );
-        const fbText = fallbackRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (fbText) {
-          const parsedFb = JSON.parse(fbText);
-          parsedFb.caseNumber = validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null);
-          parsedFb.ecourtsLink = ecourtsLink;
-          return res.json(parsedFb);
-        }
-      }
-    } catch (fbError) {
-      console.error('Fallback Gemini call also failed:', fbError.message);
-    }
-    
-    // Fallback response if Anthropic API call fails or model unavailable
-    const mockData = getMockData('sample1.json');
-    res.json({
-      whatHappened: mockData?.plainSummary || "The court has issued an order requiring compliance with specified terms.",
-      whatYouNeedToDo: [
-        "Review hearing dates and deposit requirements.",
-        "Keep copies of payment receipts for verification."
-      ],
-      keyDates: [
-        mockData?.keyFacts?.nextHearingDate ? `${mockData.keyFacts.nextHearingDate}: Next court hearing date` : "Date specified in order"
-      ],
-      whereThisStands: mockData?.keyFacts?.stage || "Interim Stage",
-      clauses: mockData?.clauses || [],
-      keyFacts: mockData?.keyFacts || { parties: [], nextHearingDate: null, stage: null },
-      caseNumber: validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null),
-      ecourtsLink: ecourtsLink,
-      fallback: true,
-      errorDetails: error.message
-    });
+    console.error('Gemini API call failed:', error.message);
+    return res.status(500).json({ error: 'The explainer service is temporarily unavailable, please try again.' });
   }
 });
 
 // POST /api/translate
-app.post('/api/translate', async (req, res) => {
+app.post(['/api/translate', '/translate'], async (req, res) => {
   const { text, targetLang } = req.body;
   if (!text || !targetLang || targetLang === 'en') {
     return res.json({ translatedText: text });
@@ -713,24 +668,18 @@ app.post('/api/translate', async (req, res) => {
 
   const targetLangName = langNames[targetLang] || targetLang;
 
+  const translateCacheKey = getCacheKey(`trans:${targetLang}:${text}`);
+  if (geminiCache.has(translateCacheKey)) {
+    return res.json({ translatedText: geminiCache.get(translateCacheKey) });
+  }
+
   try {
-    if (GEMINI_API_KEY) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
-      const prompt = `Translate the following plain-language legal explanation into clear, accessible ${targetLangName} for a self-represented litigant. Return ONLY the translation without quotes or markdown:\n\n${text}`;
-
-      const response = await axios.post(
-        geminiUrl,
-        {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1 }
-        },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
-      );
-
-      const translated = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (translated) {
-        return res.json({ translatedText: translated });
-      }
+    const prompt = `Translate the following plain-language legal explanation into clear, accessible ${targetLangName} for a self-represented litigant. Return ONLY the translation without quotes or markdown:\n\n${text}`;
+    const translated = await callGeminiWithFallback(prompt, null, false);
+    if (translated) {
+      const cleanTranslated = translated.trim();
+      geminiCache.set(translateCacheKey, cleanTranslated);
+      return res.json({ translatedText: cleanTranslated });
     }
   } catch (err) {
     console.error(`Translation error for ${targetLang}:`, err.message);
@@ -928,28 +877,14 @@ app.put('/api/admin/examples/:id/update', async (req, res) => {
 
   // Try to call Gemini to re-explain the new order text
   let geminiResult = null;
-  if (GEMINI_API_KEY) {
-    try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
-      const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${example.keyFacts?.cnrNumber || 'N/A'}\n\nCourt Order Text:\n"${newOrderText.trim()}"`;
-      
-      const response = await axios.post(
-        geminiUrl,
-        {
-          systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
-          contents: [{ parts: [{ text: userPrompt }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-        },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
-      );
-
-      const responseText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (responseText) {
-        geminiResult = JSON.parse(responseText);
-      }
-    } catch (err) {
-      console.error('Gemini re-explain failed:', err.message);
+  try {
+    const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${example.keyFacts?.cnrNumber || 'N/A'}\n\nCourt Order Text:\n"${newOrderText.trim()}"`;
+    const responseText = await callGeminiWithFallback(userPrompt, EXPLAIN_SYSTEM_PROMPT, true);
+    if (responseText) {
+      geminiResult = JSON.parse(responseText);
     }
+  } catch (err) {
+    console.error('Gemini re-explain failed:', err.message);
   }
 
   // Update the example with new data
@@ -1150,7 +1085,7 @@ NOTE:
 Consult a qualified advocate or call NALSA Helpline 15100 for immediate legal assistance.`;
 };
 
-app.post('/api/chat', async (req, res) => {
+app.post(['/api/chat', '/chat'], async (req, res) => {
   const { message, history } = req.body;
 
   if (!message || typeof message !== 'string' || !message.trim()) {
@@ -1158,9 +1093,6 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
-    
-    // Format history into Gemini's format: array of { role: "user" | "model", parts: [{ text: "..." }] }
     const contents = [];
     if (history && Array.isArray(history)) {
       history.forEach(msg => {
@@ -1170,42 +1102,15 @@ app.post('/api/chat', async (req, res) => {
         });
       });
     }
-    
-    // Add the new user message
     contents.push({
       role: 'user',
       parts: [{ text: message }]
     });
 
-    const response = await axios.post(
-      geminiUrl,
-      {
-        systemInstruction: {
-          parts: [{ text: CHAT_SYSTEM_PROMPT }]
-        },
-        contents: contents,
-        generationConfig: {
-          temperature: 0.3
-        }
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const candidate = response.data?.candidates?.[0];
-    const responseText = candidate?.content?.parts?.[0]?.text;
-
-    if (!responseText) {
-      throw new Error('No response text returned from Gemini API');
-    }
-
+    const responseText = await callGeminiWithFallback(null, CHAT_SYSTEM_PROMPT, false, contents);
     res.json({ text: responseText });
   } catch (error) {
-    console.error('Chat API note:', error.response?.data?.error?.message || error.message);
-    // Instant structured statutory response if API rate limited or offline
+    console.error('Chat API note:', error.message);
     const fallbackText = getOfflineRightsResponse(message);
     res.json({ text: fallbackText });
   }
@@ -1248,7 +1153,7 @@ const getEmailTransporter = () => {
   });
 };
 
-app.post('/api/reminders/add', (req, res) => {
+app.post(['/api/reminders/add', '/reminders/add'], (req, res) => {
   const { email, cnrNumber, hearingDate, caseTitle } = req.body;
   if (!email || !cnrNumber || !hearingDate) {
     return res.status(400).json({ error: 'Email, CNR number, and hearing date are required.' });
@@ -1374,7 +1279,11 @@ app.post('/api/reminders/check-now', async (req, res) => {
   res.json({ success: true, sentCount, emailsSentTo });
 });
 
-app.listen(port, () => {
-  console.log(`Backend server running on http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Backend server running on http://localhost:${port}`);
+  });
+}
+
+module.exports = app;
 

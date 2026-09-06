@@ -7,8 +7,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'Arial', 'sans-serif'],
-        serif: ['"Merriweather"', 'Georgia', 'serif'],
+        sans: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        serif: ['"EB Garamond"', '"Lora"', 'Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+        display: ['"Cinzel"', '"EB Garamond"', 'Georgia', 'serif'],
       },
       colors: {
         govt: {
