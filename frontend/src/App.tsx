@@ -205,16 +205,6 @@ export default function App() {
             </span>
             <span>•</span>
             <span 
-              className={`cursor-pointer ${route === 'admin' ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
-              onClick={() => {
-                if (typeof window !== 'undefined') window.history.pushState({}, '', '/admin');
-                setRoute('admin');
-              }}
-            >
-              Admin Portal (/admin)
-            </span>
-            <span>•</span>
-            <span 
               className={`cursor-pointer ${route === 'lawyerConnect' ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
               onClick={() => {
                 if (typeof window !== 'undefined') window.history.pushState({}, '', '/lawyer-connect');
@@ -226,6 +216,16 @@ export default function App() {
             <span>•</span>
             <span className="hover:text-white cursor-pointer" onClick={() => setIsGlossaryOpen(true)}>
               Glossary Terms
+            </span>
+            <span>•</span>
+            <span 
+              className={`cursor-pointer ${route === 'admin' ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
+              onClick={() => {
+                if (typeof window !== 'undefined') window.history.pushState({}, '', '/admin');
+                setRoute('admin');
+              }}
+            >
+              Admin Portal (/admin)
             </span>
             <span>•</span>
             <a href="https://ecourts.gov.in" target="_blank" rel="noreferrer" className="hover:text-white flex items-center gap-1">
