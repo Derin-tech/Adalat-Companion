@@ -1165,7 +1165,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                   </div>
                 </div>
                 <div className="p-6">
-                  <p className="text-base sm:text-lg leading-relaxed font-sans text-slate-900">
+                  <p className="text-base sm:text-lg leading-relaxed font-serif text-slate-900">
                     {renderGlossaryText(data.plainSummary)}
                   </p>
                 </div>
@@ -1180,7 +1180,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                   </h4>
                   <ul className="space-y-2">
                     {data.whatYouNeedToDo.map((step: string, i: number) => (
-                      <li key={i} className="bg-yellow-200/90 text-slate-950 p-3 rounded-md border-l-4 border-amber-500 font-semibold text-xs sm:text-sm shadow-sm flex items-start gap-2.5">
+                      <li key={i} className="bg-yellow-200/90 text-slate-950 p-3 rounded-md border-l-4 border-amber-500 font-serif font-semibold text-xs sm:text-sm shadow-sm flex items-start gap-2.5">
                         <span className="text-amber-700 font-bold text-sm shrink-0 mt-0.5">👉</span>
                         <span>{renderGlossaryText(step)}</span>
                       </li>
@@ -1198,9 +1198,9 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                   </h4>
                   <ul className="space-y-2 text-xs sm:text-sm">
                     {data.keyDates.map((kd: any, i: number) => (
-                      <li key={i} className="flex items-start gap-2 bg-white p-2.5 rounded border border-emerald-200 shadow-sm">
-                        <span className="font-bold text-emerald-800 shrink-0">🗓️ {typeof kd === 'string' ? 'Date:' : kd.date}:</span>
-                        <span className="text-slate-800">{renderGlossaryText(typeof kd === 'string' ? kd : kd.event)}</span>
+                      <li key={i} className="flex items-start gap-2 bg-white p-2.5 rounded border border-emerald-200 shadow-sm font-serif">
+                        <span className="font-bold text-emerald-800 shrink-0 font-sans">🗓️ {typeof kd === 'string' ? 'Date:' : kd.date}:</span>
+                        <span className="text-slate-900">{renderGlossaryText(typeof kd === 'string' ? kd : kd.event)}</span>
                       </li>
                     ))}
                   </ul>
@@ -1214,7 +1214,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                     <span className="px-2 py-0.5 bg-blue-900 text-white font-sans font-bold text-xs rounded">STATUS</span>
                     Where This Stands:
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans font-medium">
+                  <p className="text-xs sm:text-sm text-slate-900 leading-relaxed font-serif font-medium">
                     {renderGlossaryText(data.whereThisStands)}
                   </p>
                 </div>
@@ -1227,7 +1227,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                     <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-sans font-bold text-xs rounded">IMPORTANT UPDATE</span>
                     Important Developments:
                   </h4>
-                  <ul className="space-y-1.5 pl-2 text-xs font-bold text-slate-900">
+                  <ul className="space-y-1.5 pl-2 text-xs font-bold text-slate-900 font-serif">
                     {data.changedFromPrevious.changes.map((c: string, i: number) => (
                       <li key={i} className="bg-yellow-200 px-2 py-1 rounded border-l-2 border-amber-500">
                         {renderGlossaryText(c)}
@@ -1253,17 +1253,17 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                         <div className="flex items-start gap-3">
                           <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
                           <div>
-                            <p className="font-semibold text-sm text-slate-900">
+                            <p className="font-semibold text-sm text-slate-900 font-serif">
                               {renderGlossaryText(clause.plainText)}
                             </p>
-                            <span className="text-xs text-slate-500 mt-1 inline-block">Official Record Citation: Page {clause.pageNumber}</span>
+                            <span className="text-xs text-slate-500 mt-1 inline-block font-sans">Official Record Citation: Page {clause.pageNumber}</span>
                           </div>
                         </div>
                         <ChevronRight size={16} className={`text-slate-400 transition-transform ${activeClauseId === clause.id ? 'rotate-90 text-blue-900' : ''}`} />
                       </div>
 
                       {activeClauseId === clause.id && (
-                        <div className="mt-3 p-3 rounded bg-slate-100 border border-slate-300 text-xs font-serif italic text-slate-800">
+                        <div className="mt-3 p-3 rounded bg-slate-100 border border-slate-300 text-xs font-serif italic text-slate-900">
                           <span className="block text-[10px] font-sans not-italic font-bold uppercase text-slate-600 mb-1">Original Text:</span>
                           "{clause.originalText}"
                         </div>
@@ -1283,8 +1283,8 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
                   <dl className="space-y-2 text-xs">
                     {data.legalGlossary.map((g: any, i: number) => (
                       <div key={i} className="bg-white p-3 rounded border border-blue-200">
-                        <dt className="font-bold text-blue-900 capitalize mb-1">{g.term}</dt>
-                        <dd className="text-slate-700">{g.definition}</dd>
+                        <dt className="font-bold text-blue-900 font-serif capitalize mb-1 text-sm">{g.term}</dt>
+                        <dd className="text-slate-800 font-serif leading-relaxed text-xs sm:text-sm">{g.definition}</dd>
                       </div>
                     ))}
                   </dl>

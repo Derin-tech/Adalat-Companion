@@ -339,12 +339,12 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
                     {item.category}
                   </span>
                 </div>
-                <p className="text-sm text-slate-700 leading-relaxed">
+                <p className="text-sm sm:text-base font-serif text-slate-900 leading-relaxed">
                   {item.definition}
                 </p>
-                <div className="mt-4 p-3.5 rounded-lg bg-slate-50 border border-slate-100 text-sm text-slate-600">
-                  <span className="block font-semibold text-xs text-slate-500 uppercase tracking-wide mb-1">Usage Example</span>
-                  <span className="italic font-serif text-slate-700">"{item.example}"</span>
+                <div className="mt-4 p-3.5 rounded-lg bg-amber-50/50 border border-amber-200/60 text-sm text-slate-800">
+                  <span className="block font-sans font-bold text-[11px] text-amber-900 uppercase tracking-wide mb-1">Usage Example</span>
+                  <span className="italic font-serif text-slate-900 leading-relaxed block text-sm sm:text-base">"{item.example}"</span>
                 </div>
               </div>
             ))
