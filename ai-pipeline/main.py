@@ -170,7 +170,11 @@ async def process_document(file: UploadFile = File(...)):
         
         pages_data = []
         full_text = ""
+        pages_data = []
+        full_text = ""
         for page_num, page in enumerate(doc, start=1):
+            if page_num > 1:
+                break  # Process Page 1 only for demo and credit optimization
             text = page.get_text()
             clean_text = text.strip() if text else ""
             pages_data.append({
@@ -228,7 +232,7 @@ EXTRACTED TEXT:
 """
         
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-3.5-flash-lite',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
