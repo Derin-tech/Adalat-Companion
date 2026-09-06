@@ -35,8 +35,8 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 } 
 });
 
-const GEMINI_API_KEY_CHAT = process.env.GEMINI_API_KEY_CHAT || '';
-const GEMINI_API_KEY_EXPLAINER = process.env.GEMINI_API_KEY_EXPLAINER || '';
+const GEMINI_API_KEY_CHAT = process.env.GEMINI_API_KEY_CHAT || process.env.GEMINI_API_KEY || '';
+const GEMINI_API_KEY_EXPLAINER = process.env.GEMINI_API_KEY_EXPLAINER || process.env.GEMINI_API_KEY || '';
 
 // Startup Validation
 if (!GEMINI_API_KEY_CHAT) {
@@ -158,7 +158,7 @@ async function analyzePdfFull(fileInput) {
 
     const userPrompt = `Please analyze the following court order document and provide the structured explanation JSON according to the schema:\n\nExtracted Text (2,000 Word Excerpt):\n"${slicedText}"`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
 
     const response = await axios.post(
       geminiUrl,
@@ -615,8 +615,8 @@ app.post('/api/explain', async (req, res) => {
 
     const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${validCaseNumber || caseNumber || 'Not specified'}\n\nCourt Order Text:\n"${orderText.trim()}"`;
 
-    // Call Gemini 3.5 Flash Lite
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
+    // Call Gemini 1.5 Flash
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
 
     const response = await axios.post(
       geminiUrl,
@@ -712,7 +712,7 @@ app.post('/api/translate', async (req, res) => {
 
   try {
     if (GEMINI_API_KEY_EXPLAINER) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
       const prompt = `Translate the following plain-language legal explanation into clear, accessible ${targetLangName} for a self-represented litigant. Return ONLY the translation without quotes or markdown:\n\n${text}`;
 
       const response = await axios.post(
@@ -928,7 +928,7 @@ app.put('/api/admin/examples/:id/update', async (req, res) => {
   let geminiResult = null;
   if (GEMINI_API_KEY_EXPLAINER) {
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
       const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${example.keyFacts?.cnrNumber || 'N/A'}\n\nCourt Order Text:\n"${newOrderText.trim()}"`;
       
       const response = await axios.post(
@@ -1156,7 +1156,7 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_CHAT}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_CHAT}`;
     
     // Format history into Gemini's format: array of { role: "user" | "model", parts: [{ text: "..." }] }
     const contents = [];
