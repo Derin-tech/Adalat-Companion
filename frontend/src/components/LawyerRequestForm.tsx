@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, User, Phone, MapPin, Languages, Briefcase, Clock, FileText } from 'lucide-react';
+import { User, Phone, MapPin, Languages, Briefcase, Clock, FileText } from 'lucide-react';
 
 interface LawyerRequestFormProps {
   onSubmit: (formData: any) => void;

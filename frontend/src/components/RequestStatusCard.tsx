@@ -1,5 +1,4 @@
-import React from 'react';
-import { CheckCircle2, Circle, Clock, Mail, Phone, MapPin, AlertCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Circle, Mail, Phone, MapPin, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface RequestStatusCardProps {
   statusData: any;
@@ -10,7 +9,7 @@ interface RequestStatusCardProps {
 export const RequestStatusCard: React.FC<RequestStatusCardProps> = ({ statusData, onRefresh, isLoading }) => {
   if (!statusData) return null;
 
-  const { status, id, category, createdAt, matchedLawyer } = statusData;
+  const { status, id, matchedLawyer } = statusData;
 
   const steps = [
     { key: 'pending', label: 'Submitted', description: 'Your request has been received.' },
