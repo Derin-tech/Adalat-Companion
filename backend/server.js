@@ -27,7 +27,7 @@ function getCacheKey(str) {
 
 app.use(cors());
 app.use(express.json());
-app.use('/api/lawyer-connect', lawyerConnectRouter);
+app.use(['/api/lawyer-connect', '/lawyer-connect'], lawyerConnectRouter);
 
 // Setup multer for in-memory file uploads (Vercel & local compatible)
 const upload = multer({ 
@@ -198,7 +198,7 @@ async function analyzePdfFull(fileInput) {
 }
 
 // 1. POST /api/upload
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post(['/api/upload', '/upload'], upload.single('file'), async (req, res) => {
   // [PDF-DEBUG] Point 6: Route entered
   console.log('[PDF-DEBUG] Point 6: /api/upload route entered — req.file:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size } : 'UNDEFINED/NULL');
   if (!req.file) {
@@ -229,7 +229,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 });
 
 // 2. GET /api/summary/:caseId
-app.get('/api/summary/:caseId', async (req, res) => {
+app.get(['/api/summary/:caseId', '/summary/:caseId'], async (req, res) => {
   try {
     const lang = req.query.lang || 'en';
     const response = await axios.get(`${AI_PIPELINE_URL}/summary/${req.params.caseId}?lang=${lang}`);
@@ -583,7 +583,7 @@ function parseEcourtsHtml(html, cnrNumber) {
 }
 
 // 4. POST /api/explain
-app.post('/api/explain', async (req, res) => {
+app.post(['/api/explain', '/explain'], async (req, res) => {
   const { orderText, caseNumber } = req.body;
 
   if (!orderText || typeof orderText !== 'string' || !orderText.trim()) {
@@ -633,7 +633,7 @@ app.post('/api/explain', async (req, res) => {
 });
 
 // POST /api/translate
-app.post('/api/translate', async (req, res) => {
+app.post(['/api/translate', '/translate'], async (req, res) => {
   const { text, targetLang } = req.body;
   if (!text || !targetLang || targetLang === 'en') {
     return res.json({ translatedText: text });
@@ -1093,7 +1093,7 @@ NOTE:
 Consult a qualified advocate or call NALSA Helpline 15100 for immediate legal assistance.`;
 };
 
-app.post('/api/chat', async (req, res) => {
+app.post(['/api/chat', '/chat'], async (req, res) => {
   const { message, history } = req.body;
 
   if (!message || typeof message !== 'string' || !message.trim()) {
@@ -1161,7 +1161,7 @@ const getEmailTransporter = () => {
   });
 };
 
-app.post('/api/reminders/add', (req, res) => {
+app.post(['/api/reminders/add', '/reminders/add'], (req, res) => {
   const { email, cnrNumber, hearingDate, caseTitle } = req.body;
   if (!email || !cnrNumber || !hearingDate) {
     return res.status(400).json({ error: 'Email, CNR number, and hearing date are required.' });
