@@ -1247,8 +1247,6 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
             </div>
           </div>
 
-<<<<<<< Updated upstream
-=======
           {/* Email Reminder Card - only when a hearing date exists */}
           {data.keyFacts?.nextHearingDate && (
             <div className="govt-card">
@@ -1313,7 +1311,6 @@ function ResultsScreen({ caseId, sample, apiData, onReset }: {
               {t('openGlossaryPanelBtn')}
             </button>
           </div>
->>>>>>> Stashed changes
         </div>
       </div>
     </div>
