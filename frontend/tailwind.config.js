@@ -8,7 +8,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        serif: ['"Lora"', 'Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+        serif: ['"EB Garamond"', '"Lora"', 'Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+        display: ['"Cinzel"', '"EB Garamond"', 'Georgia', 'serif'],
       },
       colors: {
         govt: {

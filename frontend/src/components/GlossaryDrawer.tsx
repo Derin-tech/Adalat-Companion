@@ -256,11 +256,11 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
                 <Scale size={24} />
               </div>
               <div>
-                <h2 id="glossary-title" className="text-xl font-bold font-serif text-slate-950">
+                <h2 id="glossary-title" className="text-xl sm:text-2xl font-bold font-display uppercase tracking-wider text-slate-950">
                   Statutory Legal Glossary
                 </h2>
-                <p className="text-sm font-serif text-slate-600 mt-1">
-                  Official definitions for common court terms
+                <p className="text-sm font-serif italic text-slate-700 mt-1">
+                  Official definitions & statutory terms for self-represented litigants
                 </p>
               </div>
             </div>

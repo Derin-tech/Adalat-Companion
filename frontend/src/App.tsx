@@ -1144,26 +1144,26 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
           {viewMode === 'summary' && (
             <>
               {/* Executive Plain Summary */}
-              <div className="govt-card">
-                <div className="govt-card-header flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-bold text-sm text-slate-900 font-serif flex items-center gap-2">
+              <div className="govt-card bg-[#fdfdfa] border border-slate-300">
+                <div className="govt-card-header flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-300 bg-slate-50/80">
+                  <h3 className="font-bold text-base font-display uppercase tracking-wider text-slate-950 flex items-center gap-2">
                     <FileText size={18} className="text-blue-900" />
-                    Plain Language Explanation of Order
+                    Plain-Language Judicial Explanation
                   </h3>
                   <div className="flex items-center gap-3">
                     <a
                       href={data.ecourtsLink || `https://services.ecourts.gov.in/ecourtindia_v6/`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-bold text-blue-900 hover:underline flex items-center gap-1"
+                      className="text-xs font-serif font-bold text-blue-900 hover:underline flex items-center gap-1"
                     >
                       <ExternalLink size={12} aria-hidden="true" />
                       View Original on eCourts
                     </a>
                   </div>
                 </div>
-                <div className="p-6">
-                  <p className="text-base sm:text-lg leading-relaxed font-serif text-slate-900">
+                <div className="p-7">
+                  <p className="text-lg sm:text-xl leading-loose font-serif text-slate-950 font-normal">
                     {renderGlossaryText(data.plainSummary)}
                   </p>
                 </div>

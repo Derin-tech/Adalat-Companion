@@ -12,8 +12,13 @@
   }
 
   h1, h2, h3, h4, h5, h6, .font-serif {
-    font-family: 'Lora', Georgia, Cambria, 'Times New Roman', Times, serif;
+    font-family: 'EB Garamond', 'Lora', Georgia, Cambria, 'Times New Roman', Times, serif;
     letter-spacing: -0.01em;
+  }
+
+  .font-display {
+    font-family: 'Cinzel', 'EB Garamond', Georgia, serif;
+    letter-spacing: 0.05em;
   }
 
   .font-mono {
