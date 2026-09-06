@@ -29,8 +29,11 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/lawyer-connect', lawyerConnectRouter);
 
-// Setup multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+// Setup multer for in-memory file uploads (Vercel & local compatible)
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 } 
+});
 
 const GEMINI_API_KEY_CHAT = process.env.GEMINI_API_KEY_CHAT || '';
 const GEMINI_API_KEY_EXPLAINER = process.env.GEMINI_API_KEY_EXPLAINER || '';
@@ -118,9 +121,19 @@ async function extractPdfText(dataBuffer) {
   return '';
 }
 
-async function analyzePdfFull(filePath) {
+async function analyzePdfFull(fileInput) {
   try {
-    const dataBuffer = fs.readFileSync(filePath);
+    let dataBuffer;
+    if (Buffer.isBuffer(fileInput)) {
+      dataBuffer = fileInput;
+    } else if (fileInput && fileInput.buffer) {
+      dataBuffer = fileInput.buffer;
+    } else if (typeof fileInput === 'string' && fs.existsSync(fileInput)) {
+      dataBuffer = fs.readFileSync(fileInput);
+    } else {
+      throw new Error('INVALID_FILE_INPUT');
+    }
+
     console.log('[PDF-DEBUG] Point 7a: Read file buffer, byte length:', dataBuffer.length);
 
     const fullText = await extractPdfText(dataBuffer);
@@ -176,44 +189,18 @@ async function analyzePdfFull(filePath) {
 // 1. POST /api/upload
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   // [PDF-DEBUG] Point 6: Route entered
-  console.log('[PDF-DEBUG] Point 6: /api/upload route entered — req.file:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, path: req.file.path } : 'UNDEFINED/NULL', 'multer middleware: configured (upload.single("file"))');
+  console.log('[PDF-DEBUG] Point 6: /api/upload route entered — req.file:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size } : 'UNDEFINED/NULL');
   if (!req.file) {
-    console.error('[PDF-DEBUG] Point 6b: req.file is falsy, returning 400');
     console.error('Upload flow: No file uploaded');
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  const filePath = req.file.path;
-  console.log(`Upload flow: File received successfully at ${filePath}`);
-
   try {
-    // 1. Try python pipeline first if running
-    try {
-      const formData = new FormData();
-      formData.append('file', fs.createReadStream(filePath));
-      const response = await axios.post(`${AI_PIPELINE_URL}/process`, formData, {
-        headers: formData.getHeaders(),
-        timeout: 3000
-      });
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return res.json({
-        caseId: response.data.caseId || 'case-' + Date.now(),
-        status: 'ready',
-        data: response.data.summary
-      });
-    } catch (e) {
-      // Pipeline offline, fallback to Node.js Full PDF extraction
-      console.log('Upload flow: Python pipeline offline, using Node fallback.');
-    }
-
-    // 2. Perform live Full extraction and Gemini AI analysis directly
-    console.log('Upload flow: Starting PDF text extraction...');
-    const realAnalysis = await analyzePdfFull(filePath);
-
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    // Perform live Full extraction and Gemini AI analysis directly from memory buffer
+    console.log('Upload flow: Starting PDF text extraction from buffer...');
+    const realAnalysis = await analyzePdfFull(req.file);
 
     if (realAnalysis) {
-      console.log('[PDF-DEBUG] Upload flow: analyzePdfFull returned truthy result, sending to client.');
       console.log('Upload flow: Successfully received Gemini analysis.');
       return res.json({
         caseId: 'uploaded-pdf-' + Date.now(),
@@ -1385,7 +1372,11 @@ app.post('/api/reminders/check-now', async (req, res) => {
   res.json({ success: true, sentCount, emailsSentTo });
 });
 
-app.listen(port, () => {
-  console.log(`Backend server running on http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Backend server running on http://localhost:${port}`);
+  });
+}
+
+module.exports = app;
 

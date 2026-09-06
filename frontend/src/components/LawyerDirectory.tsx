@@ -3,6 +3,8 @@ import { LawyerFilters } from './LawyerFilters';
 import { LawyerCard } from './LawyerCard';
 import { LawyerProfileModal } from './LawyerProfileModal';
 
+const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
+
 export const LawyerDirectory: React.FC = () => {
   const [lawyers, setLawyers] = useState<any[]>([]);
   const [location, setLocation] = useState('');
@@ -21,7 +23,7 @@ export const LawyerDirectory: React.FC = () => {
       if (location) params.append('location', location);
       if (practiceArea) params.append('practiceArea', practiceArea);
       
-      const response = await fetch(`http://localhost:3001/api/lawyer-connect/lawyers?${params.toString()}`);
+      const response = await fetch(`${API_BASE}/lawyer-connect/lawyers?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch lawyers directory');
       const data = await response.json();
       setLawyers(data);

@@ -4,10 +4,12 @@ import { LawyerRequestForm } from './components/LawyerRequestForm';
 import { RequestStatusCard } from './components/RequestStatusCard';
 import { LawyerDirectory } from './components/LawyerDirectory';
 
+const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
+
 export const LawyerConnect: React.FC = () => {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [statusData, setStatusData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export const LawyerConnect: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:3001/api/lawyer-connect/requests/${id}`);
+      const response = await fetch(`${API_BASE}/lawyer-connect/requests/${id}`);
       if (!response.ok) throw new Error('Failed to fetch request status');
       const data = await response.json();
       setStatusData(data);
@@ -38,7 +40,7 @@ export const LawyerConnect: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:3001/api/lawyer-connect/requests', {
+      const response = await fetch(`${API_BASE}/lawyer-connect/requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

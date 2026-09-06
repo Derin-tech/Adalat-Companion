@@ -3,7 +3,7 @@ import axios from 'axios';
 import { MessageSquare, X, Send, HelpCircle } from 'lucide-react';
 import type { SupportedLanguage } from '../data/translations';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
 
 type Message = {
   text: string;

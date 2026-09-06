@@ -17,7 +17,7 @@ import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { LawyerConnect } from './LawyerConnect';
 import type { SupportedLanguage } from './data/translations';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
 
 type ViewMode = 'summary' | 'split' | 'timeline';
 
