@@ -142,8 +142,8 @@ export default function App() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold tracking-tight font-serif text-white">
-                  अदालत साथी <span className="text-amber-400 font-sans font-bold text-xl">| Adalat Companion</span>
+                <h1 className="text-2xl font-bold tracking-wider font-display text-white">
+                  अदालत साथी <span className="text-amber-400 font-display font-bold text-xl">| Adalat Companion</span>
                 </h1>
               </div>
               <p className="text-xs text-slate-300 font-medium">Court Order Text Simplification & Source Verification Portal</p>
@@ -518,7 +518,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
           <span className="inline-block text-[11px] uppercase font-bold px-2 py-0.5 bg-amber-400 text-slate-950 rounded mb-1">
             Litigant Assistance System
           </span>
-          <h2 className="text-xl sm:text-2xl font-bold font-serif">
+          <h2 className="text-xl sm:text-2xl font-bold font-display uppercase tracking-wider text-amber-300">
             Plain-Language Court Order Reading Portal
           </h2>
           <p className="text-xs text-blue-100 mt-1 max-w-2xl">
