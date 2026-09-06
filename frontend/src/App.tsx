@@ -133,27 +133,27 @@ export default function App() {
 
       {/* 2. Official Main Header Bar */}
       <header className="govt-header text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div 
-            className="flex items-center gap-4 cursor-pointer" 
+            className="flex items-center gap-3 cursor-pointer min-w-0" 
             onClick={handleReset}
           >
-            <div className="w-12 h-12 rounded-xl bg-white p-1 border-2 border-amber-500 flex items-center justify-center shadow overflow-hidden shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white p-1 border-2 border-amber-500 flex items-center justify-center shadow overflow-hidden shrink-0">
               <img src="/logo.png" alt="Adalat Companion Logo" className="w-full h-full object-contain" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-wider font-display text-white">
-                  अदालत साथी <span className="text-amber-400 font-display font-bold text-xl">| Adalat Companion</span>
+                <h1 className="text-base sm:text-2xl font-bold tracking-wider font-display text-white truncate">
+                  अदालत साथी <span className="text-amber-400 font-display font-bold text-xs sm:text-xl">| Adalat Companion</span>
                 </h1>
               </div>
-              <p className="text-xs text-slate-300 font-medium">Court Order Text Simplification & Source Verification Portal</p>
+              <p className="text-[10px] sm:text-xs text-slate-300 font-medium truncate">Court Order Text Simplification & Source Verification Portal</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 no-print">
+          <div className="flex items-center gap-2 sm:gap-3 no-print shrink-0">
             {user ? (
-              <div className="flex items-center gap-2 bg-slate-800/90 border border-amber-500/50 rounded-lg px-3 py-1.5 text-xs text-white">
+              <div className="flex items-center gap-2 bg-slate-800/90 border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-xs text-white">
                 {user.photoURL ? (
                   <img src={user.photoURL} alt={user.displayName || 'User'} className="w-6 h-6 rounded-full border border-amber-400 object-cover" />
                 ) : (
@@ -172,7 +172,7 @@ export default function App() {
             ) : (
               <button
                 onClick={handleGoogleSignIn}
-                className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded bg-amber-400 hover:bg-amber-300 text-slate-950 transition-colors shadow-sm cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold rounded bg-amber-400 hover:bg-amber-300 text-slate-950 transition-colors shadow-sm cursor-pointer shrink-0"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
@@ -180,23 +180,25 @@ export default function App() {
                   <path fill="#FBBC05" d="M5.28 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.39l3.99-3.15z"/>
                   <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"/>
                 </svg>
-                <span>Sign in with Google</span>
+                <span className="hidden sm:inline">Sign in with Google</span>
+                <span className="sm:hidden">Sign in</span>
               </button>
             )}
 
             <button
               onClick={() => setIsGlossaryOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition-colors shrink-0"
             >
               <BookOpen size={16} className="text-amber-400" />
-              <span>Legal Term Glossary</span>
+              <span className="hidden sm:inline">Legal Term Glossary</span>
+              <span className="sm:hidden">Glossary</span>
             </button>
           </div>
         </div>
 
         {/* Sub-header Navigation Bar */}
-        <div className="bg-slate-900/90 border-t border-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 no-print">
-          <div className="max-w-7xl mx-auto flex items-center gap-6">
+        <div className="bg-slate-900/90 border-t border-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 no-print overflow-x-auto whitespace-nowrap">
+          <div className="max-w-7xl mx-auto flex items-center gap-4 sm:gap-6 min-w-max">
             <span 
               className={`cursor-pointer ${route === 'main' && !caseId && !selectedSample && !apiData ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`} 
               onClick={handleReset}
@@ -535,11 +537,11 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
 
       {/* Main Upload / Search Form Card */}
       <div className="govt-card">
-        <div className="govt-card-header flex flex-wrap items-center justify-between gap-4">
-          <div className="flex gap-4">
+        <div className="govt-card-header flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex gap-4 overflow-x-auto whitespace-nowrap pb-1 sm:pb-0">
             <button
               onClick={() => setActiveTab('upload')}
-              className={`pb-1 font-bold text-sm border-b-2 transition-colors ${
+              className={`pb-1 font-bold text-xs sm:text-sm border-b-2 transition-colors shrink-0 ${
                 activeTab === 'upload' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -547,7 +549,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
             </button>
             <button
               onClick={() => setActiveTab('text')}
-              className={`pb-1 font-bold text-sm border-b-2 transition-colors ${
+              className={`pb-1 font-bold text-xs sm:text-sm border-b-2 transition-colors shrink-0 ${
                 activeTab === 'text' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -555,7 +557,7 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
             </button>
             <button
               onClick={() => setActiveTab('cnr')}
-              className={`pb-1 font-bold text-sm border-b-2 transition-colors ${
+              className={`pb-1 font-bold text-xs sm:text-sm border-b-2 transition-colors shrink-0 ${
                 activeTab === 'cnr' ? 'border-blue-900 text-blue-950' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -564,12 +566,12 @@ function UploadScreen({ onSuccess, onSelectSample, setLoading, setError }: {
           </div>
 
           {/* Try an Example Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-600">Try an Example:</span>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-bold text-slate-600 shrink-0">Try an Example:</span>
             <select
               value={selectedSampleId}
               onChange={handleDropdownSelect}
-              className="px-3 py-1.5 text-xs font-bold rounded border border-blue-900 bg-blue-50 text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-900 cursor-pointer shadow-sm"
+              className="w-full sm:w-auto px-3 py-1.5 text-xs font-bold rounded border border-blue-900 bg-blue-50 text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-900 cursor-pointer shadow-sm truncate"
             >
               <option value="">-- Select Preloaded Sample Order --</option>
               {availableSamples.map((sample) => (
@@ -1109,10 +1111,10 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
       </div>
 
       {/* View Switcher Tabs */}
-      <div className="flex border-b border-slate-300 bg-white rounded-t border-x border-t no-print">
+      <div className="flex overflow-x-auto whitespace-nowrap border-b border-slate-300 bg-white rounded-t border-x border-t no-print">
         <button
           onClick={() => setViewMode('summary')}
-          className={`py-3 px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors ${
+          className={`py-3 px-4 sm:px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
             viewMode === 'summary' ? 'border-blue-900 text-blue-900 bg-slate-50' : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -1121,7 +1123,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
         </button>
         <button
           onClick={() => setViewMode('split')}
-          className={`py-3 px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors ${
+          className={`py-3 px-4 sm:px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
             viewMode === 'split' ? 'border-blue-900 text-blue-900 bg-slate-50' : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -1130,7 +1132,7 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
         </button>
         <button
           onClick={() => setViewMode('timeline')}
-          className={`py-3 px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors ${
+          className={`py-3 px-4 sm:px-5 font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
             viewMode === 'timeline' ? 'border-blue-900 text-blue-900 bg-slate-50' : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -1294,42 +1296,40 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
           {viewMode === 'split' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm font-serif text-slate-900">Side-by-Side Document Source Comparison</h3>
-                <span className="text-xs text-slate-500">Click any row to focus matched clause text</span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-bold text-sm font-serif text-slate-900">Side-by-Side Judicial Inspector</h3>
+                <span className="text-xs text-slate-500">Click any clause card to highlight focus</span>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase text-blue-900">Plain-language Explanation</h4>
-                  {data.clauses?.map((clause: Clause) => (
-                    <div 
-                      key={clause.id}
-                      onClick={() => setActiveClauseId(clause.id)}
-                      className={`govt-card p-3 text-xs leading-relaxed cursor-pointer ${
-                        activeClauseId === clause.id ? 'border-blue-900 bg-yellow-100 font-bold' : ''
-                      }`}
-                    >
-                      {renderGlossaryText(clause.plainText)}
+              <div className="space-y-4">
+                {data.clauses?.map((clause: Clause) => (
+                  <div 
+                    key={clause.id}
+                    onClick={() => setActiveClauseId(clause.id)}
+                    className={`govt-card p-4 transition-all cursor-pointer ${
+                      activeClauseId === clause.id ? 'ring-2 ring-amber-500 bg-amber-50/40 shadow-md' : 'hover:border-blue-400'
+                    }`}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-sans font-bold uppercase text-blue-900 tracking-wider block">
+                          Plain-Language Explanation (Page {clause.pageNumber})
+                        </span>
+                        <div className="text-xs sm:text-sm font-serif leading-relaxed text-slate-900">
+                          {renderGlossaryText(clause.plainText)}
+                        </div>
+                      </div>
+                      <div className="space-y-1 pt-3 md:pt-0 border-t md:border-t-0 md:border-l border-slate-200 md:pl-4">
+                        <span className="text-[10px] font-sans font-bold uppercase text-amber-800 tracking-wider block">
+                          Original Court Order Citation
+                        </span>
+                        <div className="text-xs font-serif italic leading-relaxed text-slate-700">
+                          "{clause.originalText}"
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase text-amber-800">Original Text</h4>
-                  {data.clauses?.map((clause: Clause) => (
-                    <div 
-                      key={clause.id}
-                      onClick={() => setActiveClauseId(clause.id)}
-                      className={`govt-card p-3 text-xs font-serif italic leading-relaxed cursor-pointer ${
-                        activeClauseId === clause.id ? 'border-amber-600 bg-amber-50 text-slate-900' : 'text-slate-700'
-                      }`}
-                    >
-                      <span className="block text-[10px] font-sans not-italic font-bold text-slate-500 mb-0.5">Page {clause.pageNumber}</span>
-                      "{clause.originalText}"
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
