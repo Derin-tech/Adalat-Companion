@@ -15,6 +15,7 @@ import ChatWidget from './components/ChatWidget';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { LawyerConnect } from './LawyerConnect';
+import type { SupportedLanguage } from './data/translations';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -1335,7 +1336,13 @@ function ResultsScreen({ caseId, sample, apiData, onReset, onOpenGlossary }: {
 
           {viewMode === 'timeline' && (
             <div className="space-y-6">
-              <TimelineWidget keyFacts={data.keyFacts} darkMode={false} />
+              <TimelineWidget 
+                keyFacts={data.keyFacts} 
+                keyDates={data.keyDates}
+                whatYouNeedToDo={data.whatYouNeedToDo}
+                lang={lang as SupportedLanguage}
+                darkMode={false} 
+              />
               <ActionChecklist />
             </div>
           )}
