@@ -13,9 +13,17 @@ if (pdfParse && typeof pdfParse !== 'function' && typeof pdfParse.default === 'f
 require('dotenv').config();
 const lawyerConnectRouter = require('./routes/lawyerConnect');
 
+const crypto = require('crypto');
 const app = express();
 const port = process.env.PORT || 3001;
 const AI_PIPELINE_URL = 'http://127.0.0.1:8000';
+
+// High-Performance In-Memory Response Cache for Gemini Calls
+const geminiCache = new Map();
+function getCacheKey(str) {
+  if (!str) return '';
+  return crypto.createHash('md5').update(str.trim().toLowerCase()).digest('hex');
+}
 
 app.use(cors());
 app.use(express.json());
@@ -585,6 +593,15 @@ app.post('/api/explain', async (req, res) => {
     ecourtsLink = `https://services.ecourts.gov.in/ecourtindia_v6/`;
   }
 
+  const cacheKey = getCacheKey(orderText);
+  if (geminiCache.has(cacheKey)) {
+    console.log(`[Cache Hit] Returning cached Gemini analysis for order text (${orderText.length} chars)`);
+    const cachedData = geminiCache.get(cacheKey);
+    cachedData.caseNumber = validCaseNumber || cachedData.caseNumber;
+    cachedData.ecourtsLink = ecourtsLink || cachedData.ecourtsLink;
+    return res.json(cachedData);
+  }
+
   try {
     console.log(`Calling Gemini API for case ${validCaseNumber || caseNumber || 'N/A'}...`);
 
@@ -627,6 +644,7 @@ app.post('/api/explain', async (req, res) => {
     parsedJson.caseNumber = validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null);
     parsedJson.ecourtsLink = ecourtsLink;
 
+    geminiCache.set(cacheKey, parsedJson);
     res.json(parsedJson);
   } catch (error) {
     console.error('Gemini API call failed:', error.response?.data || error.message);
@@ -679,6 +697,11 @@ app.post('/api/translate', async (req, res) => {
 
   const targetLangName = langNames[targetLang] || targetLang;
 
+  const translateCacheKey = getCacheKey(`trans:${targetLang}:${text}`);
+  if (geminiCache.has(translateCacheKey)) {
+    return res.json({ translatedText: geminiCache.get(translateCacheKey) });
+  }
+
   try {
     if (GEMINI_API_KEY_EXPLAINER) {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
@@ -695,6 +718,7 @@ app.post('/api/translate', async (req, res) => {
 
       const translated = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (translated) {
+        geminiCache.set(translateCacheKey, translated);
         return res.json({ translatedText: translated });
       }
     }
