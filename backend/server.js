@@ -124,6 +124,44 @@ async function extractPdfText(dataBuffer) {
   return '';
 }
 
+async function callGeminiWithFallback(prompt, systemPrompt, isJson = true, contentsOverride = null) {
+  const keys = [GEMINI_API_KEY_EXPLAINER, GEMINI_API_KEY_CHAT].filter(Boolean);
+  const uniqueKeys = [...new Set(keys)];
+  const models = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest'];
+  
+  let lastError = null;
+
+  for (const key of uniqueKeys) {
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const body = {
+          contents: contentsOverride || [{ parts: [{ text: prompt }] }]
+        };
+        if (systemPrompt) {
+          body.systemInstruction = { parts: [{ text: systemPrompt }] };
+        }
+        if (isJson) {
+          body.generationConfig = { responseMimeType: "application/json", temperature: 0.2 };
+        } else {
+          body.generationConfig = { temperature: 0.3 };
+        }
+
+        const res = await axios.post(url, body, { headers: { 'Content-Type': 'application/json' }, timeout: 15000 });
+        const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          return text;
+        }
+      } catch (err) {
+        lastError = err;
+        console.warn(`Gemini API call retry note [model ${model}]:`, err.response?.data?.error?.message || err.message);
+      }
+    }
+  }
+
+  throw lastError || new Error('All Gemini API keys and models were exhausted');
+}
+
 async function analyzePdfFull(fileInput) {
   try {
     let dataBuffer;
@@ -137,52 +175,22 @@ async function analyzePdfFull(fileInput) {
       throw new Error('INVALID_FILE_INPUT');
     }
 
-    console.log('[PDF-DEBUG] Point 7a: Read file buffer, byte length:', dataBuffer.length);
-
     const fullText = await extractPdfText(dataBuffer);
 
-    // [PDF-DEBUG] Point 7d: Extraction result
-    console.log('[PDF-DEBUG] Point 7d: PDF text extraction result — text length:', fullText.length, 'first 200 chars:', JSON.stringify(fullText.substring(0, 200)));
-
     if (!fullText || fullText.length < 10) {
-      console.log('[PDF-DEBUG] Point 7e: Text too short or empty, throwing NO_TEXT_EXTRACTED');
-      console.log('PDF text layer is empty or scanned image.');
       throw new Error('NO_TEXT_EXTRACTED');
     }
 
-    // Slice text to approx 2000 words to optimize credits and speed
     const words = fullText.split(/\s+/);
     const slicedText = words.length > 2000 ? words.slice(0, 2000).join(' ') : fullText;
 
-    console.log(`Successfully extracted PDF text (${fullText.length} chars, sliced to ${words.length > 2000 ? '2000 words' : words.length + ' words'}). Calling Gemini API...`);
-
-    // [PDF-DEBUG] Point 8: About to call Gemini
-    console.log('[PDF-DEBUG] Point 8: About to call Gemini API — GEMINI_API_KEY_EXPLAINER is set:', !!GEMINI_API_KEY_EXPLAINER, 'words length being sent:', Math.min(words.length, 2000));
-
     const userPrompt = `Please analyze the following court order document and provide the structured explanation JSON according to the schema:\n\nExtracted Text (2,000 Word Excerpt):\n"${slicedText}"`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
-
-    const response = await axios.post(
-      geminiUrl,
-      {
-        systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
-        contents: [{ parts: [{ text: userPrompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-      },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
-    );
-
-    const jsonStr = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    // [PDF-DEBUG] Point 9: Gemini API response received
-    console.log('[PDF-DEBUG] Point 9: Gemini API response — status:', response.status, 'has jsonStr:', !!jsonStr, 'preview:', jsonStr ? jsonStr.substring(0, 200) : 'null');
+    const jsonStr = await callGeminiWithFallback(userPrompt, EXPLAIN_SYSTEM_PROMPT, true);
     if (jsonStr) {
-      const parsed = JSON.parse(jsonStr);
-      return parsed;
+      return JSON.parse(jsonStr);
     }
   } catch (err) {
-    // [PDF-DEBUG] Point 10a: Catch in analyzePdfFull
-    console.error('[PDF-DEBUG] Point 10a: caught in analyzePdfFull catch — message:', err.message, 'stack:', err.stack);
     console.error('Error analyzing PDF with Gemini:', err.message);
     throw err;
   }
@@ -212,17 +220,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       });
     }
   } catch (error) {
-    // [PDF-DEBUG] Point 10b: Catch in /api/upload outer try/catch
-    console.error('[PDF-DEBUG] Point 10b: caught in /api/upload outer catch — message:', error.message, 'stack:', error.stack);
     console.error('Upload processing error:', error.message);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    
     if (error.message === 'NO_TEXT_EXTRACTED') {
-      console.log('[PDF-DEBUG] Point 10c: Returning 400 NO_TEXT_EXTRACTED error to frontend');
       return res.status(400).json({ error: "We couldn't read this PDF — it may be a scanned image without a text layer. Please try pasting the order text instead." });
     }
-    
-    console.log('[PDF-DEBUG] Point 10d: Returning 500 generic error to frontend');
     return res.status(500).json({ error: "The explainer service is temporarily unavailable, please try again." });
   }
 });
@@ -618,75 +619,16 @@ app.post('/api/explain', async (req, res) => {
 
     const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${validCaseNumber || caseNumber || 'Not specified'}\n\nCourt Order Text:\n"${orderText.trim()}"`;
 
-    // Call Gemini 3.6 Flash
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
-
-    const response = await axios.post(
-      geminiUrl,
-      {
-        systemInstruction: {
-          parts: [{ text: EXPLAIN_SYSTEM_PROMPT }]
-        },
-        contents: [
-          {
-            parts: [{ text: userPrompt }]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.2
-        }
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const candidate = response.data?.candidates?.[0];
-    const responseText = candidate?.content?.parts?.[0]?.text;
-
-    if (!responseText) {
-      throw new Error('No response text returned from Gemini API');
-    }
-
-    let parsedJson = JSON.parse(responseText);
+    const jsonStr = await callGeminiWithFallback(userPrompt, EXPLAIN_SYSTEM_PROMPT, true);
+    let parsedJson = JSON.parse(jsonStr);
     parsedJson.caseNumber = validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null);
     parsedJson.ecourtsLink = ecourtsLink;
 
     geminiCache.set(cacheKey, parsedJson);
-    res.json(parsedJson);
+    return res.json(parsedJson);
   } catch (error) {
-    console.error('Gemini API call failed:', error.response?.data || error.message);
-    
-    // Attempt fallback model (gemini-1.5-flash) if 2.5 flash was not found
-    try {
-      if (error.response?.status === 404 && GEMINI_API_KEY_EXPLAINER) {
-        console.log('Retrying with gemini-1.5-flash...');
-        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
-        const fallbackRes = await axios.post(
-          fallbackUrl,
-          {
-            systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
-            contents: [{ parts: [{ text: `Case Number: ${caseNumber || 'N/A'}\nOrder: ${orderText}` }] }],
-            generationConfig: { responseMimeType: "application/json" }
-          }
-        );
-        const fbText = fallbackRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (fbText) {
-          const parsedFb = JSON.parse(fbText);
-          parsedFb.caseNumber = validCaseNumber || (typeof caseNumber === 'string' ? caseNumber.trim() : null);
-          parsedFb.ecourtsLink = ecourtsLink;
-          return res.json(parsedFb);
-        }
-      }
-    } catch (fbError) {
-      console.error('Fallback Gemini call also failed:', fbError.message);
-    }
-    
-    // If we reach here, both primary and fallback API calls failed
-    return res.status(500).json({ error: "The explainer service is temporarily unavailable, please try again." });
+    console.error('Gemini API call failed:', error.message);
+    return res.status(500).json({ error: 'The explainer service is temporarily unavailable, please try again.' });
   }
 });
 
@@ -1159,9 +1101,6 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY_CHAT}`;
-    
-    // Format history into Gemini's format: array of { role: "user" | "model", parts: [{ text: "..." }] }
     const contents = [];
     if (history && Array.isArray(history)) {
       history.forEach(msg => {
@@ -1171,42 +1110,15 @@ app.post('/api/chat', async (req, res) => {
         });
       });
     }
-    
-    // Add the new user message
     contents.push({
       role: 'user',
       parts: [{ text: message }]
     });
 
-    const response = await axios.post(
-      geminiUrl,
-      {
-        systemInstruction: {
-          parts: [{ text: CHAT_SYSTEM_PROMPT }]
-        },
-        contents: contents,
-        generationConfig: {
-          temperature: 0.3
-        }
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const candidate = response.data?.candidates?.[0];
-    const responseText = candidate?.content?.parts?.[0]?.text;
-
-    if (!responseText) {
-      throw new Error('No response text returned from Gemini API');
-    }
-
+    const responseText = await callGeminiWithFallback(null, CHAT_SYSTEM_PROMPT, false, contents);
     res.json({ text: responseText });
   } catch (error) {
-    console.error('Chat API note:', error.response?.data?.error?.message || error.message);
-    // Instant structured statutory response if API rate limited or offline
+    console.error('Chat API note:', error.message);
     const fallbackText = getOfflineRightsResponse(message);
     res.json({ text: fallbackText });
   }
