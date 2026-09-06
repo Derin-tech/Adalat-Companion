@@ -125,36 +125,54 @@ async function extractPdfText(dataBuffer) {
 }
 
 async function callGeminiWithFallback(prompt, systemPrompt, isJson = true, contentsOverride = null) {
-  const keys = [GEMINI_API_KEY_EXPLAINER, GEMINI_API_KEY_CHAT].filter(Boolean);
-  const uniqueKeys = [...new Set(keys)];
-  const models = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest'];
+  const envKeys = [
+    process.env.GEMINI_API_KEY_CHAT,
+    process.env.GEMINI_API_KEY_EXPLAINER,
+    process.env.GEMINI_API_KEY,
+    DEFAULT_CHAT_KEY,
+    DEFAULT_EXPLAINER_KEY
+  ].filter(k => k && typeof k === 'string' && k.trim().length > 0);
   
+  const uniqueKeys = [...new Set(envKeys)];
+  const models = ['gemini-3.6-flash', 'gemini-flash-latest'];
   let lastError = null;
 
   for (const key of uniqueKeys) {
     for (const model of models) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-        const body = {
-          contents: contentsOverride || [{ parts: [{ text: prompt }] }]
-        };
-        if (systemPrompt) {
-          body.systemInstruction = { parts: [{ text: systemPrompt }] };
-        }
-        if (isJson) {
-          body.generationConfig = { responseMimeType: "application/json", temperature: 0.2 };
-        } else {
-          body.generationConfig = { temperature: 0.3 };
-        }
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+          const body = {
+            contents: contentsOverride || [{ parts: [{ text: prompt }] }]
+          };
+          if (systemPrompt) {
+            body.systemInstruction = { parts: [{ text: systemPrompt }] };
+          }
+          if (isJson) {
+            body.generationConfig = { responseMimeType: "application/json", temperature: 0.2 };
+          } else {
+            body.generationConfig = { temperature: 0.3 };
+          }
 
-        const res = await axios.post(url, body, { headers: { 'Content-Type': 'application/json' }, timeout: 15000 });
-        const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          return text;
+          const res = await axios.post(url, body, { headers: { 'Content-Type': 'application/json' }, timeout: 20000 });
+          const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            return text;
+          }
+        } catch (err) {
+          lastError = err;
+          const status = err.response?.status;
+          const errMsg = err.response?.data?.error?.message || err.message;
+          console.warn(`Gemini API attempt ${attempt + 1} [${model}]:`, errMsg);
+
+          if (status === 429 || errMsg.includes('Quota exceeded') || errMsg.includes('rate limits')) {
+            await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+            continue;
+          }
+          if (status === 404) {
+            break;
+          }
         }
-      } catch (err) {
-        lastError = err;
-        console.warn(`Gemini API call retry note [model ${model}]:`, err.response?.data?.error?.message || err.message);
       }
     }
   }
@@ -656,24 +674,12 @@ app.post(['/api/translate', '/translate'], async (req, res) => {
   }
 
   try {
-    if (GEMINI_API_KEY_EXPLAINER) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
-      const prompt = `Translate the following plain-language legal explanation into clear, accessible ${targetLangName} for a self-represented litigant. Return ONLY the translation without quotes or markdown:\n\n${text}`;
-
-      const response = await axios.post(
-        geminiUrl,
-        {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1 }
-        },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
-      );
-
-      const translated = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (translated) {
-        geminiCache.set(translateCacheKey, translated);
-        return res.json({ translatedText: translated });
-      }
+    const prompt = `Translate the following plain-language legal explanation into clear, accessible ${targetLangName} for a self-represented litigant. Return ONLY the translation without quotes or markdown:\n\n${text}`;
+    const translated = await callGeminiWithFallback(prompt, null, false);
+    if (translated) {
+      const cleanTranslated = translated.trim();
+      geminiCache.set(translateCacheKey, cleanTranslated);
+      return res.json({ translatedText: cleanTranslated });
     }
   } catch (err) {
     console.error(`Translation error for ${targetLang}:`, err.message);
@@ -871,28 +877,14 @@ app.put('/api/admin/examples/:id/update', async (req, res) => {
 
   // Try to call Gemini to re-explain the new order text
   let geminiResult = null;
-  if (GEMINI_API_KEY_EXPLAINER) {
-    try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
-      const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${example.keyFacts?.cnrNumber || 'N/A'}\n\nCourt Order Text:\n"${newOrderText.trim()}"`;
-      
-      const response = await axios.post(
-        geminiUrl,
-        {
-          systemInstruction: { parts: [{ text: EXPLAIN_SYSTEM_PROMPT }] },
-          contents: [{ parts: [{ text: userPrompt }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-        },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
-      );
-
-      const responseText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (responseText) {
-        geminiResult = JSON.parse(responseText);
-      }
-    } catch (err) {
-      console.error('Gemini re-explain failed:', err.message);
+  try {
+    const userPrompt = `Please analyze the following court order text and provide the structured explanation JSON according to the schema:\n\nCase Number: ${example.keyFacts?.cnrNumber || 'N/A'}\n\nCourt Order Text:\n"${newOrderText.trim()}"`;
+    const responseText = await callGeminiWithFallback(userPrompt, EXPLAIN_SYSTEM_PROMPT, true);
+    if (responseText) {
+      geminiResult = JSON.parse(responseText);
     }
+  } catch (err) {
+    console.error('Gemini re-explain failed:', err.message);
   }
 
   // Update the example with new data
