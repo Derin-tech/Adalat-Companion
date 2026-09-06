@@ -87,21 +87,43 @@ const getMockData = (filename) => {
   return null;
 };
 
+async function extractPdfText(dataBuffer) {
+  if (pdfParse && typeof pdfParse.PDFParse === 'function') {
+    try {
+      const parser = new pdfParse.PDFParse({ data: dataBuffer });
+      await parser.load();
+      const res = await parser.getText();
+      if (typeof res === 'string' && res.trim()) return res.trim();
+      if (res && res.text && typeof res.text === 'string') return res.text.trim();
+    } catch (e) {
+      console.warn('PDFParse class extraction note:', e.message);
+    }
+  }
+  if (typeof pdfParse === 'function') {
+    try {
+      const res = await pdfParse(dataBuffer);
+      if (res && res.text) return res.text.trim();
+    } catch (e) {
+      console.warn('pdfParse legacy function extraction note:', e.message);
+    }
+  }
+  if (pdfParse && typeof pdfParse.default === 'function') {
+    try {
+      const res = await pdfParse.default(dataBuffer);
+      if (res && res.text) return res.text.trim();
+    } catch (e) {
+      console.warn('pdfParse default export extraction note:', e.message);
+    }
+  }
+  return '';
+}
+
 async function analyzePdfFull(filePath) {
   try {
     const dataBuffer = fs.readFileSync(filePath);
     console.log('[PDF-DEBUG] Point 7a: Read file buffer, byte length:', dataBuffer.length);
-    let parseFn = typeof pdfParse === 'function' ? pdfParse : (pdfParse && typeof pdfParse.default === 'function' ? pdfParse.default : null);
 
-    if (typeof parseFn !== 'function') {
-      console.error('[PDF-DEBUG] Point 7b: pdfParse is NOT callable. typeof pdfParse:', typeof pdfParse, 'typeof pdfParse.default:', typeof pdfParse?.default);
-      console.error('pdfParse is not callable. Check pdf-parse package.');
-      throw new Error('PDF_PARSE_NOT_CALLABLE');
-    }
-    console.log('[PDF-DEBUG] Point 7c: parseFn is callable, about to invoke pdfParse...');
-
-    const pdfData = await parseFn(dataBuffer); // No max limit
-    const fullText = pdfData && pdfData.text ? pdfData.text.trim() : '';
+    const fullText = await extractPdfText(dataBuffer);
 
     // [PDF-DEBUG] Point 7d: Extraction result
     console.log('[PDF-DEBUG] Point 7d: PDF text extraction result — text length:', fullText.length, 'first 200 chars:', JSON.stringify(fullText.substring(0, 200)));
@@ -112,17 +134,16 @@ async function analyzePdfFull(filePath) {
       throw new Error('NO_TEXT_EXTRACTED');
     }
 
-    if (fullText.length > 2000000) {
-      console.warn(`[PDF-DEBUG] Extracted text is ${fullText.length} characters, exceeding the 2M generous warning threshold.`);
-      console.warn(`Extracted text is ${fullText.length} characters, exceeding the 2M generous warning threshold. It may not fit in the context window.`);
-    }
+    // Slice text to approx 2000 words to optimize credits and speed
+    const words = fullText.split(/\s+/);
+    const slicedText = words.length > 2000 ? words.slice(0, 2000).join(' ') : fullText;
 
-    console.log(`Successfully extracted PDF text (${fullText.length} characters). Calling Gemini API...`);
+    console.log(`Successfully extracted PDF text (${fullText.length} chars, sliced to ${words.length > 2000 ? '2000 words' : words.length + ' words'}). Calling Gemini API...`);
 
     // [PDF-DEBUG] Point 8: About to call Gemini
-    console.log('[PDF-DEBUG] Point 8: About to call Gemini API — GEMINI_API_KEY_EXPLAINER is set:', !!GEMINI_API_KEY_EXPLAINER, 'text length being sent:', fullText.length);
+    console.log('[PDF-DEBUG] Point 8: About to call Gemini API — GEMINI_API_KEY_EXPLAINER is set:', !!GEMINI_API_KEY_EXPLAINER, 'words length being sent:', Math.min(words.length, 2000));
 
-    const userPrompt = `Please analyze the following court order document and provide the structured explanation JSON according to the schema:\n\nExtracted Text:\n"${fullText}"`;
+    const userPrompt = `Please analyze the following court order document and provide the structured explanation JSON according to the schema:\n\nExtracted Text (2,000 Word Excerpt):\n"${slicedText}"`;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY_EXPLAINER}`;
 
