@@ -256,10 +256,10 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
                 <Scale size={24} />
               </div>
               <div>
-                <h2 id="glossary-title" className="text-xl font-bold font-serif text-slate-900">
+                <h2 id="glossary-title" className="text-xl font-bold font-serif text-slate-950">
                   Statutory Legal Glossary
                 </h2>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm font-serif text-slate-600 mt-1">
                   Official definitions for common court terms
                 </p>
               </div>
@@ -284,7 +284,7 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search legal terms (e.g. ex parte, bail)..."
-              className="w-full h-12 pl-10 pr-10 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent placeholder:text-slate-400 shadow-sm transition-all"
+              className="w-full h-12 pl-10 pr-10 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent placeholder:text-slate-400 shadow-sm transition-all font-serif"
             />
             {search && (
               <button 
@@ -303,7 +303,7 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-1.5 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                className={`px-3.5 py-1.5 text-sm rounded-lg font-serif font-semibold whitespace-nowrap transition-colors ${
                   selectedCategory === cat 
                     ? 'bg-blue-900 text-white shadow-sm' 
                     : 'bg-white border border-slate-200 text-blue-950 hover:bg-slate-50 hover:border-slate-300'
@@ -322,8 +322,8 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-400 mb-4">
                 <Search size={24} />
               </div>
-              <h3 className="text-lg font-medium text-slate-900 mb-1">No terms found</h3>
-              <p className="text-sm text-slate-500">Try searching for another legal term.</p>
+              <h3 className="text-lg font-serif font-medium text-slate-900 mb-1">No terms found</h3>
+              <p className="text-sm font-serif text-slate-600">Try searching for another legal term.</p>
             </div>
           ) : (
             filteredTerms.map((item, idx) => (
@@ -332,10 +332,10 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
                 className="p-5 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm transition-all duration-200 group"
               >
                 <div className="flex items-start justify-between gap-4 mb-3">
-                  <h3 className="font-bold text-blue-900 text-lg font-serif capitalize leading-tight">
+                  <h3 className="font-bold text-blue-950 text-xl font-serif capitalize leading-tight">
                     {item.term}
                   </h3>
-                  <span className="shrink-0 text-[10px] tracking-wider uppercase font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                  <span className="shrink-0 text-[10px] tracking-wider uppercase font-serif font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                     {item.category}
                   </span>
                 </div>
@@ -343,7 +343,7 @@ export default function GlossaryDrawer({ isOpen, onClose }: Props) {
                   {item.definition}
                 </p>
                 <div className="mt-4 p-3.5 rounded-lg bg-amber-50/50 border border-amber-200/60 text-sm text-slate-800">
-                  <span className="block font-sans font-bold text-[11px] text-amber-900 uppercase tracking-wide mb-1">Usage Example</span>
+                  <span className="block font-serif font-bold text-xs text-amber-950 uppercase tracking-wide mb-1">Usage Example</span>
                   <span className="italic font-serif text-slate-900 leading-relaxed block text-sm sm:text-base">"{item.example}"</span>
                 </div>
               </div>

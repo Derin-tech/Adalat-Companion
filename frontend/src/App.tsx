@@ -98,8 +98,6 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-3">
             <span className="font-semibold text-slate-300">National Legal Aid & Literacy Support Portal</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400 hidden sm:inline">Government of India Project</span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-300">
